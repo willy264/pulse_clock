@@ -128,6 +128,6 @@ At the illustrative P = 500,000 and 50 MHz, event spacing is 10 ms and frequency
 
 ## 8. Later verification and present evidence
 
-Unit simulations may retain the illustrative clock but use small elaboration/configuration counts, clearly labeled accelerated fixtures. For example, four debounce cycles and a 32-cycle window mean 80 ns and 640 ns at 50 MHz, not 20 ms and 5 s. Use a reduced timer width to exercise every count and its maximum, then add selected default-width/default-duration checks. No testbench has been implemented in this phase.
+Unit simulations retain the illustrative clock and use small elaboration/configuration counts for accelerated boundary checks. For example, four debounce cycles and a 32-cycle window mean 80 ns and 640 ns at 50 MHz, not 20 ms and 5 s. The implemented suite exercises every 8-bit timer setting, selected default-width operations, and a full default-duration debounce; application scenarios use D = 3 and a 64-cycle window. Actual results and unrun long-duration limits are recorded in the final report.
 
 The clock period, example cycle counts, maximum timer duration, and required example widths above were independently recalculated in PowerShell during the initial documentation pass. Those were arithmetic checks, not simulator or synthesis results. The architecture now fixes the digital pipeline schedule; subsequent simulation evidence is recorded separately. Physical application response budgets remain provisional.

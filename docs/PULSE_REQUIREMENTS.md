@@ -61,7 +61,7 @@ The one-shot serves both reusable delays and the proposed protection window; a d
 | N-09 | Required / explicit | Document provisional integration assumptions and obtain agreement before calling SENTINEL/GUARDIAN/VOICE/ANCHOR interfaces finalized. |
 | N-10 | Required / explicit | In later phases maintain traceability, known issues, simulation evidence, and an honest final report. An unrun test shall never be reported as PASS. |
 | N-11 | Required / explicit | Perform later Quartus RTL/synthesis checks and review warnings. Physical implementation is future work and shall not be started now. |
-| N-12 | Required / explicit | Use logical Git commits for project work, preserve existing work, and stop at the current documentation review boundary. |
+| N-12 | Required / explicit | Use logical Git commits for project work, preserve existing work, and respect the user's review boundaries. The initial four-document stop was completed before the user instructed continuation. |
 
 ## 5. Application mapping and ownership
 

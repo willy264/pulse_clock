@@ -74,7 +74,7 @@ After reset/disable, suppose sensor input is stable before the first enabled edg
 
 This timing also applies when the input equals the zero output reset value. A warmup state is necessary to prevent reset padding from satisfying the debounce interval.
 
-During verification, an observed mismatch takes precedence over expiry, stores the new candidate, and reloads D. If the candidate matches and remaining = 1, accept it and mark stable. STABLE holds its qualified output until a different synchronized value starts a new full interval. Validity stays high during later changes; it means a previous qualified reading exists. Reset/disable alone invalidate a qualified channel.
+During verification, an observed mismatch takes precedence over expiry, stores the new candidate, and reloads D. If the candidate matches and remaining = 1, accept it and mark stable. STABLE holds its qualified output until a different synchronized value starts a new full interval. Validity stays high during later changes; it means a previous qualified reading exists. During legal operation, reset/disable alone invalidate a qualified channel. Default recovery from the unused state encoding also clears that local channel, as defined in the state-machine specification.
 
 The ideal simulation delay from a persistent input transition captured at edge `c0` to output qualification is D+2 cycles: stage 2 receives it at c1, the qualifier observes it at c2, and acceptance occurs at c(2+D). An arbitrary asynchronous transition adds the phase wait until c0, ideally less than one clock period. This is a digital-model schedule, not a physical metastability bound. A synchronous GUARDIAN sees a newly registered result on the next edge.
 

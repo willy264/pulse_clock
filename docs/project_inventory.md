@@ -4,6 +4,8 @@ Inspection date: 2026-09-10. Team: PULSE.
 
 Scope: Phase 0 reconnaissance and the four-document review package requested by master prompt §37.
 
+This is the historical reconnaissance snapshot. The initial review stop was completed; the user's subsequent continuation led to the implemented baseline described in [README](../README.md) and [final report](FINAL_REPORT.md). Statements below about missing RTL/tests describe the original empty workspace, not the current delivered repository.
+
 ## 1. Workspace found at entry
 
 Workspace: `C:\Users\HP\Documents\people\pulse_clock` on Windows, using PowerShell.
@@ -96,4 +98,4 @@ No prior file naming convention exists. The current documents follow the paths r
 
 No RTL, testbench, simulator script, application model, or hardware file is part of this delivery. No simulation, waveform, synthesis, resource, or physical timing result is claimed. Document review and arithmetic checks are the validation appropriate to this phase.
 
-Next step: review this package, settle or explicitly accept its assumptions, then complete timing/interface decisions and move to architecture and state-machine design. The user's section 37 review stop applies before implementation.
+At the original delivery, the next step was review followed by architecture/state-machine design. That stop was honored. Subsequent implementation, simulation, waveform review, synthesis checks, and clean-checkout evidence are documented separately; external team assumptions remain provisional.
