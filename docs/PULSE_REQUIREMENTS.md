@@ -1,16 +1,16 @@
 # PULSE requirements
 
-Status: **DRAFT FOR REVIEW — Phase 1; no RTL authorized at this stage.**
+Status: **Working baseline following the user's continuation on 2026-09-10.** External team agreements and numerical hardware assumptions remain provisional.
 
 Prepared: 2026-09-10. Application: Water Tank Level & Dry-Run Protection Controller.
 
 ## 1. Scope and authority
 
-The source is the user-supplied **MASTER PROJECT PROMPT**, particularly sections 1–5, 13–16, 20–24, and 37. No separate university project sheet, sensor specification, board specification, or other team's interface was present in the workspace. Section 37 limits the current deliverable to the inventory, requirements, initial timing specification, and initial interface specification, followed by a review stop.
+The source is the user-supplied **MASTER PROJECT PROMPT**, particularly sections 1–5, 13–16, 20–24, and 37. No separate university project sheet, sensor specification, board specification, or other team's interface was present in the workspace. The first four-document deliverable stopped for review as section 37 requested. The user's subsequent instruction, “alright continue then,” permits continued design and implementation using the documented assumptions as the working baseline.
 
 The eventual product is a reusable PULSE digital timing block, implemented in synthesizable SystemVerilog and demonstrated through ModelSim simulation of a water-tank controller. PULSE qualifies sensor transitions and measures intervals. GUARDIAN interprets those observations and owns pump control and protection policy. A timer expiry alone indicates elapsed time, not proof of a physical dry-run.
 
-This document defines required capabilities and proposes measurable behavior. It does not approve an architecture, module decomposition, FSM, RTL, physical circuit, or another team's contract.
+This document defines required capabilities and proposed measurable behavior. Internal architecture/FSM review precedes implementation. Continued project work does not finalize another team's contract or authorize physical implementation.
 
 ## 2. Classification
 
@@ -76,7 +76,7 @@ The later digital application must demonstrate normal LOW → MID → HIGH filli
 
 ## 6. Engineering assumption register
 
-Every entry is **PROPOSED — pending review**, not a claim about physical hardware or another team's implementation.
+Every entry is a **working engineering assumption**, not a claim about physical hardware or another team's implementation. F-11 remains optional and is excluded from the baseline because no periodic consumer is confirmed. The digital application adds explicit scenario assumptions in [water-tank behavior](WATER_TANK_BEHAVIOR.md).
 
 | ID | Proposal | Reason / alternative |
 | --- | --- | --- |
@@ -110,8 +110,8 @@ These items are **BLOCKED / REQUIRES TEAM INPUT** for a finalized integration co
 
 ## 8. Review and later verification
 
-This phase checks consistency, provenance, arithmetic, and interface completeness only. No HDL compilation, functional simulation, waveform verification, or synthesis has run; there is no RTL to test.
+The initial review checked consistency, provenance, arithmetic, and interface completeness only. Architecture and state-machine design now define the implementation. Later reports distinguish actual HDL/test execution from planned checks.
 
-After review, finish timing/interface agreements, then define architecture and state machines before implementation. Later verification must cover reset during counting; start while busy and on expiry; zero/minimum/maximum intervals; configuration changes mid-count; cancellation/disable at expiry; repeated starts; sensor startup validity; noise and expiration-boundary changes; simultaneous timer/debounce operation; optional periodic behavior; and the five application scenarios above. Concrete test IDs and evidence belong to the later verification plan and traceability matrix.
+Verification must cover reset during counting; start while busy and on expiry; zero/minimum/maximum intervals; configuration changes mid-count; cancellation/disable at expiry; repeated starts; sensor startup validity; noise and expiration-boundary changes; simultaneous timer/debounce operation; and the five application scenarios above. Periodic checks apply only if that extension is adopted. Concrete test IDs and evidence belong to the verification plan and traceability matrix.
 
-The current deliverable stops with the four documents listed in [project inventory](project_inventory.md). No architecture, FSM, RTL, testbench, or application model is approved by the presence of this draft.
+The [project inventory](project_inventory.md) preserves the original reconnaissance snapshot. The [architecture](PULSE_ARCHITECTURE.md) and [state-machine specification](PULSE_STATE_MACHINES.md) carry the subsequent design decisions. External agreements Q-01 through Q-08 remain open without preventing a clearly provisional digital demonstration.

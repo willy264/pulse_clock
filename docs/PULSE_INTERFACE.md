@@ -2,13 +2,13 @@
 
 Status: **PROVISIONAL — pending agreement with integration team.**
 
-Prepared: 2026-09-10. Scope: a proposed PULSE-side contract for review, with no module declaration or RTL implementation.
+Prepared: 2026-09-10. Scope: the PULSE-side working contract; implementation follows the architecture and internal design review. Other-team interfaces remain provisional.
 
 ## 1. Scope and design choices
 
 The master prompt's example `pulse_top` interface is illustrative. No existing SENTINEL, GUARDIAN, VOICE, or ANCHOR ports were found. The following names, widths, controls, and defaults are engineering proposals under A-01 through A-12 in [requirements](PULSE_REQUIREMENTS.md). They are not another team's published interfaces.
 
-The candidate external boundary has one independent one-shot and a bank of sensor qualification channels. This supports concurrent sensor validation and protection timing. Module partitioning, counter implementation, internal pipelines, and state machines are deferred to the architecture phase.
+The external boundary has one independent one-shot and a bank of sensor qualification channels. This supports concurrent sensor validation and protection timing. Module partitioning, downcounters, startup pipelines, and states are defined in [architecture](PULSE_ARCHITECTURE.md) and [state machines](PULSE_STATE_MACHINES.md).
 
 | Choice | Proposed behavior | Alternative and implication |
 | --- | --- | --- |
@@ -78,7 +78,7 @@ GUARDIAN must decide the meaning of a timeout and how to handle simultaneous res
 
 Synchronization registers reduce the risk of metastability propagation; the number of stages must eventually be justified using the chosen clock/device and timing analysis. This general rationale is supported by the vendor's [Design Recommendations: Metastability Analysis](https://docs.altera.com/r/docs/683323/18.1/intel-quartus-prime-standard-edition-user-guide-design-recommendations/metastability-analysis-in-the-intel-quartus-prime-software). That reference is design guidance, not evidence that this project has passed CDC or hardware analysis, nor a compatibility claim for the locally installed Quartus version.
 
-The debounce observes synchronized digital samples. On the first fresh candidate sample, start a full `DEBOUNCE_CYCLES` interval; accept only if the candidate remains identical through the ending observation. A change on that ending edge restarts qualification instead. Architecture must explicitly exclude reset-filled synchronizer values from startup qualification and account for acquisition latency.
+The debounce observes synchronized digital samples. On the first fresh candidate sample, start a full `DEBOUNCE_CYCLES` interval; accept only if the candidate remains identical through the ending observation. A change on that ending edge restarts qualification instead. A two-stage readiness pipeline excludes reset-filled samples; first observation is two clock periods after the first enabled capture edge, followed by the full qualification interval.
 
 The S bits do not constitute an agreed encoding for LOW/MID/HIGH. Independent synchronizers and debounce channels can produce values from different observation times. If SENTINEL exports an encoded word, the teams must agree coherent transfer and validation; simply synchronizing each bit is insufficient to promise word coherence. Likewise, all bits of `sensor_valid` high means each has qualified, not that their combined reading is atomic or physically consistent. GUARDIAN/SENTINEL own combination checks after a representation is agreed.
 
@@ -108,4 +108,4 @@ No toggle clock, frequency bus, interrupt controller, sticky event register, or 
 
 Final agreements are **BLOCKED / REQUIRES TEAM INPUT**; the named owners are proposed integration responsibilities, not evidence of another team's acceptance.
 
-Before architecture/RTL work, review the clock/reset and synchronization boundary; cycle units/ranges; zero behavior and control priority; startup validity and full-interval debounce; concurrent window/qualification behavior; and optional-periodic scope. The current four documents provide a concrete proposal for that review. No SystemVerilog file, state machine, or application behavior has been implemented or simulated.
+Internal review checks the clock/reset and synchronization boundary; cycle units/ranges; zero behavior and control priority; startup validity and full-interval debounce; concurrent window/qualification behavior; and optional-periodic scope before RTL implementation. The optional periodic ports are absent from the baseline. The separate application behavior document defines a provisional demonstration adapter without changing this reusable interface.

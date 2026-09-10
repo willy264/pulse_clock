@@ -52,7 +52,7 @@ t_nominal = N / f_cfg
 
 Use ceiling conversion so a positive requested duration is not rounded down. Validate range before driving the configuration bus; never wrap or silently truncate an out-of-range value. Arithmetic used to form cycle counts and widths must be wide enough for intermediate results. Multiplying milliseconds by frequency in a narrow signed integer is not an acceptable conversion strategy.
 
-For storage of the inclusive integer range `0…N_max`, the required capacity is `max(1, ceil(log2(N_max + 1)))` bits. A later architecture may choose a different count representation but must preserve the same external boundaries. Elaboration constraints: `TIMER_WIDTH >= 1`, `SENSOR_CHANNELS >= 1`, and `DEBOUNCE_CYCLES >= 1`. Zero debounce is an invalid configuration, unlike the explicitly normalized runtime timer zero value.
+For storage of the inclusive integer range `0…N_max`, the required capacity is `max(1, ceil(log2(N_max + 1)))` bits. The architecture selects a remaining-cycle count with this inclusive capacity. Elaboration constraints: `TIMER_WIDTH >= 1`, `SENSOR_CHANNELS >= 1`, and `1 <= DEBOUNCE_CYCLES <= 2,147,483,647`. Zero debounce is an invalid configuration, unlike the explicitly normalized runtime timer zero value. Compute width using an overflow-safe expression as specified in the architecture.
 
 With actual clock frequency `f_actual`, the physical interval is `N / f_actual`. For an agreed frequency range `[f_min, f_max]`, its bounds are `[N / f_max, N / f_min]`. No numeric oscillator error or accuracy percentage is known. The rounding guarantee above is relative to the configured frequency and does not guarantee a minimum physical delay under a faster actual clock.
 
@@ -103,10 +103,10 @@ Let `d0` be the edge on which a new candidate value is first observed after sync
 - Returning to the last accepted value before expiration leaves the accepted output unchanged.
 - Both rising and falling changes use the same initial interval proposal.
 - During a pending change, the last qualified output remains available. Once set, validity stays high until reset/disable; it does not assert that the raw signal currently agrees with the output.
-- At startup, validity is low and the input must qualify for the complete interval, even if its value equals the zero reset output. Reset-filled synchronizer stages must not count as fresh sensor observations. Architecture must specify pipeline startup gating and its exact latency before RTL.
+- At startup, validity is low and the input must qualify for the complete interval, even if its value equals the zero reset output. A two-stage readiness pipeline excludes reset-filled synchronizer values: first enabled capture at a0, second at a1, first qualifier observation at a2, acceptance at a(2+D) for a stable input. See the architecture for the edge table.
 - Independent channels can update on different edges; per-channel qualification provides no atomic multi-bit word guarantee.
 
-This rejects short **observed** disturbances. RTL simulation cannot guarantee rejection of every analog glitch between sampling edges or prove metastability performance. A synchronizer's acquisition latency precedes the debounce interval, and a registered consumer normally adds a later observation edge. Document that latency when the pipeline is fixed; do not silently include it in the nominal 20 ms or claim a physical maximum without evidence.
+This rejects short **observed** disturbances. RTL simulation cannot guarantee rejection of every analog glitch between sampling edges or prove metastability performance. The digital baseline has D+2 cycles from first-stage capture of a persistent transition to qualified output, plus any input phase wait before capture. A registered consumer observes the result one edge later. This pipeline latency is additional to the nominal 20 ms and is not a physical metastability bound.
 
 ## 6. Protection-window budget and ownership
 
@@ -130,4 +130,4 @@ At the illustrative P = 500,000 and 50 MHz, event spacing is 10 ms and frequency
 
 Unit simulations may retain the illustrative clock but use small elaboration/configuration counts, clearly labeled accelerated fixtures. For example, four debounce cycles and a 32-cycle window mean 80 ns and 640 ns at 50 MHz, not 20 ms and 5 s. Use a reduced timer width to exercise every count and its maximum, then add selected default-width/default-duration checks. No testbench has been implemented in this phase.
 
-The clock period, example cycle counts, maximum timer duration, and required example widths above were independently recalculated in PowerShell during this documentation pass. These are arithmetic checks, not simulator or synthesis results. Final edge behavior, pipeline latency, and application response budgets remain subject to architecture review and later self-checking simulation.
+The clock period, example cycle counts, maximum timer duration, and required example widths above were independently recalculated in PowerShell during the initial documentation pass. Those were arithmetic checks, not simulator or synthesis results. The architecture now fixes the digital pipeline schedule; subsequent simulation evidence is recorded separately. Physical application response budgets remain provisional.
