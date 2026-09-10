@@ -1,8 +1,10 @@
 # PULSE: Water Tank Level & Dry-Run Protection Controller
 
-PULSE is a reusable, synthesizable SystemVerilog timer and sensor-qualification block. This university Micro2Nano project demonstrates its use in a digital water-tank controller: reject sensor noise, measure an initial pump-response window, and provide deterministic timing to protection logic.
+PULSE is a reusable, synthesizable Verilog HDL timer and sensor-qualification block. This university Micro2Nano project demonstrates its use in a digital water-tank controller: reject sensor noise, measure an initial pump-response window, and provide deterministic timing to protection logic.
 
 The software baseline includes RTL, self-checking ModelSim tests, digital application models, waveform evidence, and Quartus analysis/synthesis checks. Four testbenches pass. Physical implementation is future work; sensor meanings, clock specifications, and protection policy remain explicitly provisional. See [final report](docs/FINAL_REPORT.md) for evidence and limits.
+
+Implementation language: Verilog HDL (Verilog-2001). All 11 RTL, model, and testbench sources use `.v`. The [conversion report](docs/VERILOG_CONVERSION.md) records the reviewed changes, clean verification results, and exact project tree.
 
 ## What PULSE does
 
@@ -31,7 +33,7 @@ From the repository root, with ModelSim `vsim` on PATH:
 .\sim\run.ps1
 ```
 
-The runner creates a fresh directory under `build/modelsim`, compiles all RTL/models/testbenches, and runs four isolated simulations. Expected output contains:
+The runner creates a fresh directory under `build/modelsim`, compiles all RTL/models/testbenches with `vlog -vlog01compat`, and runs four isolated simulations. Expected output contains:
 
 ```text
 PASS pulse_timer_tb
@@ -65,6 +67,8 @@ The demonstration uses `{full, above_low}` threshold bits, a unitless 0…100 ta
 ## Repository structure
 
 ```text
+.vscode/             Workspace Verilog file association
+pulse.teroshdl.yml    Portable Verilog/ModelSim TerosHDL project
 src/                 Synthesizable PULSE RTL
 src/application/     Provisional GUARDIAN demonstration controller
 tb/                  Four self-checking testbenches
@@ -76,11 +80,12 @@ docs/waveforms/       Small review artifacts derived from recorded simulation
 build/               Ignored local simulation/synthesis artifacts
 ```
 
-Tested tools: ModelSim-Altera Starter 10.1d and Quartus II 13.0.1 SP1 on Windows. No alternate simulator is required. Global TerosHDL settings are not changed by these scripts; the inspected installation originally selected GHDL and needs a project-specific ModelSim setup if using the editor's simulation UI.
+Tested tools: ModelSim-Altera Starter 10.1d and Quartus II 13.0.1 SP1 on Windows. No alternate simulator is required. The portable `pulse.teroshdl.yml` project selects ModelSim and classifies every HDL source as Verilog. It is also registered locally as `PULSE_Verilog`; reload the VS Code window if the open extension still shows its previous selection. See the [simulation guide](docs/SIMULATION_GUIDE.md) for import and compiler settings.
 
 ## Engineering documents
 
 - [Inventory](docs/project_inventory.md), [requirements](docs/PULSE_REQUIREMENTS.md), [timing](docs/PULSE_TIMING_SPEC.md), [interface](docs/PULSE_INTERFACE.md).
 - [Architecture](docs/PULSE_ARCHITECTURE.md), [state machines](docs/PULSE_STATE_MACHINES.md), [application behavior](docs/WATER_TANK_BEHAVIOR.md), [integration contract](docs/INTEGRATION_CONTRACT.md).
 - [Verification plan](docs/PULSE_VERIFICATION_PLAN.md), [traceability](docs/TRACEABILITY_MATRIX.md), [waveform observations](docs/WAVEFORM_OBSERVATIONS.md), [synthesis check](docs/SYNTHESIS_CHECK.md).
+- [Verilog conversion and exact project structure](docs/VERILOG_CONVERSION.md).
 - [Final report](docs/FINAL_REPORT.md), [known issues and limitations](docs/KNOWN_ISSUES.md), [future hardware path](docs/FUTURE_HARDWARE_IMPLEMENTATION.md).

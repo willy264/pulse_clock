@@ -2,7 +2,9 @@
 
 Date: 2026-09-10. Status: **Implemented and verified digital baseline; external integration and physical assumptions remain provisional.** This report covers software/RTL/simulation and synthesis-oriented analysis, not physical implementation.
 
-Executable source, testbenches, and tool scripts were validated at Git revision `dda71462f805f3c14a57512ef573cbcc6aa8d583`. Subsequent delivery changes document those results and add review artifacts; they do not change the tested HDL or runner behavior.
+Executable source, testbenches, and tool scripts were validated at Git revision `c9c9016d3703e60e37317406c354b07f4bde38f0`. Subsequent delivery changes document those results and add review artifacts; they do not change the tested HDL or runner behavior.
+
+Implementation language: Verilog HDL (Verilog-2001). The [conversion report](VERILOG_CONVERSION.md) records all 11 reviewed source conversions, current clean-build evidence, compatibility details, and the exact project structure. No new features were added during this correction.
 
 ## 1. Project overview
 
@@ -26,7 +28,7 @@ Three core modules share one clock: `pulse_timer`, one `pulse_debounce` per sens
 
 ## 6. RTL implementation
 
-The four files under `src` contain synthesizable SystemVerilog, including the provisional `water_tank_controller`. Registers have one sequential owner; combinational control has defaults; arithmetic counts are unsigned and sized. Assertions and parameter diagnostics are inside synthesis-excluded regions. Testbench clock generation, stimulus timing, and models are separated under `tb` and excluded from synthesis.
+The four files under `src` contain synthesizable Verilog HDL, including the provisional `water_tank_controller`. Registers have one sequential owner; combinational control has defaults; arithmetic counts are unsigned and sized. Procedural invariant checks and parameter diagnostics are inside synthesis-excluded regions. Testbench clock generation, stimulus timing, and models are separated under `tb` and excluded from synthesis.
 
 ## 7. Timing design
 
@@ -42,13 +44,13 @@ The application adapter interprets `{full, above_low}` as LOW/MID/FULL and start
 
 ## 10. Simulation methodology
 
-ModelSim-Altera Starter 10.1d compiled all production sources, three digital models, and four testbenches with `vlog -sv`. The runner uses a fresh local `modelsim.ini`/work library, one simulation process per bench, bounded watchdogs, process timeout, explicit success flags/markers, transcript diagnostic checks, WLF capture, and application VCD capture.
+ModelSim-Altera Starter 10.1d compiled all production sources, three digital models, and four testbenches with `vlog -vlog01compat`. The runner uses a fresh local `modelsim.ini`/work library, one simulation process per bench, bounded watchdogs, process timeout, explicit success flags/markers, transcript diagnostic checks, WLF capture, and application VCD capture.
 
 Checks use observable clock deadlines and qualified outputs, plus selected internal invariants/width inspections. The timer tests all 256 configurations of an 8-bit timer, including zero, to exact completion. Application tests use accelerated D = 3 and N = 64; they do not pretend those are the physical 20 ms/5 s values. No result is inferred solely from compilation.
 
 ## 11. Verification results and reproducibility
 
-All four benches passed both the repository run and a fresh local Git clone. The final clone contained only tracked inputs before running and had a clean tracked working tree afterward. Its directory contained spaces, exercising path handling.
+All four converted benches passed the fresh repository build with the same check counts and finish times as the preceding baseline. Independent temporary-library runs and a fresh tracked clone also passed, with no reused build artifacts. Current clean-checkout provenance is recorded in [VERILOG_CONVERSION.md](VERILOG_CONVERSION.md).
 
 | Bench | Observed result | Checks reported by bench | Finish time |
 | --- | --- | --- | --- |
@@ -59,21 +61,19 @@ All four benches passed both the repository run and a fresh local Git clone. The
 
 Check totals are execution counts, not a coverage percentage or proof of exhaustive state-space verification. The plan and [traceability matrix](TRACEABILITY_MATRIX.md) map specific requirements to these cases.
 
-Final documentation checks covered local links, table columns, code fences, UTF-8 integrity, and final newlines across 17 Markdown documents. The measured timing plot was visually inspected. The delivered HDL/testbench/runner files still match the clean-checkout source revision; later commits contain documentation and review artifacts.
+Documentation review passed for all 18 Markdown documents and 164 local links, table columns, code fences, UTF-8/newline integrity, current source references, language declarations, evidence, and compatibility settings. The measured timing plot was visually inspected in the original baseline and its source events exactly match the converted run. The delivered HDL/testbench/runner files match the executable revision above; subsequent commits contain documentation.
 
 Evidence locations on the validation machine:
 
 | Evidence | Location |
 | --- | --- |
-| Repository functional run | `build/modelsim/run-20260910-023217-006` |
-| Repository analysis/synthesis | `build/quartus/run-20260910-023045-118` |
-| Clean clone | `C:\Users\HP\AppData\Local\Temp\pulse clean validation 98e11292f0414bfcafcaec56046fc6c3` |
-| Functional run relative to clean clone | `build/modelsim/run-20260910-023634-832` |
-| Synthesis run relative to clean clone | `build/quartus/run-20260910-023715-443` |
+| Repository functional run | `build/modelsim/run-20260910-065458-111` |
+| Repository analysis/synthesis | `build/quartus/run-20260910-065547-884` |
+| Clean clone and independent probe artifacts | Exact current paths in [conversion report](VERILOG_CONVERSION.md). |
 
 Each functional run includes `compile.log`, per-bench logs/WLF, `results.json`, and application VCD. Tool outputs remain local/ignored; compact waveform review artifacts are tracked. Reproduce with `./sim/run.ps1` and `./synth/run.ps1`; no prior generated library is needed.
 
-Supplemental temporary probes observed eight expected fatal diagnostics: W = 0, S = 0, D = 0, D = -1, and unknown reset/enable on each of timer/debounce. A deliberate application `$fatal` before its success flag yielded runner exit 4; the normal completion yielded exit 0. Those temporary sources are not part of the four committed positive benches. Process-timeout injection, arbitrary X/Z fault injection, and unused-state corruption recovery were not exhaustively tested.
+Supplemental Verilog probes observed eight expected `FAIL` diagnostics followed by `$stop`: W = 0, S = 0, D = 0, D = -1, and unknown reset/enable on each of timer/debounce. A deliberately failing application check before its success flag yielded runner exit 4 with no success marker; normal completion yielded exit 0. Only the deliberately invalid W = 0 fixture additionally warned about zero replication; supported configurations compile and simulate without warnings. Those temporary sources are not part of the four committed positive benches. Process-timeout injection, arbitrary X/Z fault injection, and unused-state corruption recovery were not exhaustively tested.
 
 ## 12. Waveform observations
 
@@ -87,7 +87,7 @@ These are measured accelerated simulation times. They are not measured physical 
 
 ## 13. Synthesis results
 
-Quartus II 13.0.1 SP1 Analysis & Synthesis succeeded for both tops in the workspace and the clean clone. Map reports estimate 224 logic elements/92 registers for `pulse_top`, and 241/96 for `water_tank_controller`, using representative Cyclone IV E EP4CE22F17C6. Each has zero errors and warning 20028: parallel compilation not licensed, so it runs serially.
+Quartus II 13.0.1 SP1 Analysis & Synthesis succeeded for both tops in fresh Verilog projects. Clean-checkout verification is recorded in the conversion report. Map reports estimate 224 logic elements/92 registers for `pulse_top`, and 241/96 for `water_tank_controller`, using representative Cyclone IV E EP4CE22F17C6. Each has zero errors and warning 20028: parallel compilation not licensed, so it runs serially.
 
 The application also reports two original state registers losing fanouts during optimization. Diagnostics were reviewed; no latch, multiple-driver, truncation, or combinational-loop warning was observed. [Synthesis check](SYNTHESIS_CHECK.md) distinguishes estimated map counts from other informational resource fields. No fitter, physical timing closure, MTBF, post-synthesis equivalence, or hardware validation is claimed.
 
@@ -103,4 +103,4 @@ Agree actual interfaces, clock/reset/tolerance, measured bounce/process timing, 
 
 ## 16. Conclusion
 
-The reusable PULSE baseline and provisional digital application are implemented, self-checking simulations pass from a clean checkout, measured waveform behavior matches the cycle contracts, and the installed Quartus synthesis flow accepts both production tops. Remaining work is explicitly external integration agreement, broader physical/maximum-duration validation where needed, and any subsequently authorized hardware phase.
+The reusable PULSE baseline and provisional digital application are implemented, self-checking Verilog simulations pass with freshly compiled libraries, measured waveform behavior matches the cycle contracts, and the installed Quartus synthesis flow accepts both production tops. Remaining work is explicitly external integration agreement, broader physical/maximum-duration validation where needed, and any subsequently authorized hardware phase.

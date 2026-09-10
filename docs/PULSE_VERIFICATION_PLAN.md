@@ -2,13 +2,15 @@
 
 Prepared: 2026-09-10. Status: **Functional regression and structural RTL/synthesis checks complete; final delivery review is tracked in the [final report](FINAL_REPORT.md).** The working digital contract is provisional for external integration. Recorded PASS results below apply only to the stated checks and limits.
 
+Implementation language: Verilog HDL. All production sources, models, and benches use `.v` files; ModelSim compilation explicitly selects Verilog-2001 with `vlog -vlog01compat`. The [conversion report](VERILOG_CONVERSION.md) records the executable revision and final fresh-checkout validation.
+
 ## 1. Scope and acceptance method
 
 Verify the independent one-shot, individual sensor qualifier, their composition, and the provisional GUARDIAN demonstration. The acceptance oracle is the edge behavior in [timing](PULSE_TIMING_SPEC.md), [state machines](PULSE_STATE_MACHINES.md), and [water-tank behavior](WATER_TANK_BEHAVIOR.md). [Traceability](TRACEABILITY_MATRIX.md) maps every functional and non-functional requirement to these checks or to review/delivery evidence.
 
-All functional fixtures use a 20 ns clock period, corresponding to an illustrative 50 MHz. Stimulus is normally driven on falling edges; outputs are checked after rising-edge registered updates. Timers are judged against elapsed edge numbers, and debounce is judged against the first raw capture plus the documented acquisition/qualification delay. Assertions additionally check internal invariants. These assertions supplement public-output checks rather than replace them.
+All functional fixtures use a 20 ns clock period, corresponding to an illustrative 50 MHz. Stimulus is normally driven on falling edges; outputs are checked after rising-edge registered updates. Timers are judged against elapsed edge numbers, and debounce is judged against the first raw capture plus the documented acquisition/qualification delay. Synthesis-excluded procedural checks additionally inspect internal invariants and print `FAIL` followed by `$stop` on a violation. These supplement the public-output checks.
 
-Each committed bench has a `test_passed` marker initialized to zero, fatal self-check failures, a bounded simulation watchdog, and a completion message. It sets the marker only after its required checks. A successful run requires successful compilation/elaboration, normal completion, marker one, and no error/fatal diagnostic. The host runner also imposes a wall-clock timeout.
+Each committed bench has a `test_passed` marker initialized to zero, procedural self-checks that print `FAIL` and call `$stop`, a bounded simulation watchdog, and a completion message. It sets the marker only after its required checks. A successful run requires successful compilation/elaboration, normal completion, marker one, and no native simulator error/fatal or Verilog `FAIL` diagnostic. The host runner also imposes a wall-clock timeout. Packed 256-byte task arguments preserve all diagnostic text without a language-specific string type.
 
 The labels P-001 through P-037 below are document-level verification IDs. T01–T08, D00–D08, P01–P07, and A–G are labels in the corresponding benches. In particular, top-level bench label P01 is distinct from document ID P-001.
 
@@ -30,7 +32,7 @@ For the application timeout fixture, PULSE done registers at start + 64 cycles a
 
 ## 3. One-shot verification matrix
 
-Bench: [pulse_timer_tb.sv](../tb/pulse_timer_tb.sv). Target: [pulse_timer.sv](../src/pulse_timer.sv). All rows are required for acceptance of the implemented baseline, including its adopted busy/cancel/enable conventions. Current final-run status for P-001…P-008: **PASS in both final runs; evidence in section 8**.
+Bench: [pulse_timer_tb.v](../tb/pulse_timer_tb.v). Target: [pulse_timer.v](../src/pulse_timer.v). All rows are required for acceptance of the implemented baseline, including its adopted busy/cancel/enable conventions. Current final-run status for P-001…P-008: **PASS in the recorded Verilog conversion regressions; evidence in section 8**.
 
 | ID | Bench label | Stimulus | Expected result |
 | --- | --- | --- | --- |
@@ -45,11 +47,11 @@ Bench: [pulse_timer_tb.sv](../tb/pulse_timer_tb.sv). Target: [pulse_timer.sv](..
 
 ## 4. Sensor qualification verification matrix
 
-Bench: [pulse_debounce_tb.sv](../tb/pulse_debounce_tb.sv). Target: [pulse_debounce.sv](../src/pulse_debounce.sv). All rows are required baseline checks. Current final-run status for P-009…P-017: **PASS in both final runs; evidence in section 8**.
+Bench: [pulse_debounce_tb.v](../tb/pulse_debounce_tb.v). Target: [pulse_debounce.v](../src/pulse_debounce.v). All rows are required baseline checks. Current final-run status for P-009…P-017: **PASS in the recorded Verilog conversion regressions; evidence in section 8**.
 
 | ID | Bench label | Stimulus | Expected result |
 | --- | --- | --- | --- |
-| P-009 | D00 | Inspect elaborated count widths at D = 1, 4, 1,000,000, and INT_MAX. | Widths 1, 3, 20, and 31; inclusive storage and intermediate arithmetic do not overflow. |
+| P-009 | D00 | Inspect actual elaborated count widths at D = 1, 4, 1,000,000, and INT_MAX by concatenating a leading sentinel and shifting away the expected width. | Widths 1, 3, 20, and 31; sentinel must equal one after the shift, including when register contents are initially unknown. Inclusive storage and intermediate arithmetic do not overflow. |
 | P-010 | D01 | Reset; enable with a persistent zero or one input. | Reset output is invalid; first fresh observation at a2; qualification only at a(2+D), including a zero-valued input. |
 | P-011 | D02 | Persistent rising and falling changes after qualification. | Last output/validity remain until c(D+2); each direction receives D full intervals after synchronization. |
 | P-012 | D03 | Positive pulses lasting 1…D captured samples, including return on the candidate expiry observation. | No positive acceptance; current mismatch wins over expiring old candidate. |
@@ -61,7 +63,7 @@ Bench: [pulse_debounce_tb.sv](../tb/pulse_debounce_tb.sv). Target: [pulse_deboun
 
 ## 5. Composition verification matrix
 
-Bench: [pulse_top_tb.sv](../tb/pulse_top_tb.sv). Target: [pulse_top.sv](../src/pulse_top.sv). All rows are required baseline checks. Current final-run status for P-018…P-024: **PASS in both final runs; evidence in section 8**.
+Bench: [pulse_top_tb.v](../tb/pulse_top_tb.v). Target: [pulse_top.v](../src/pulse_top.v). All rows are required baseline checks. Current final-run status for P-018…P-024: **PASS in the recorded Verilog conversion regressions; evidence in section 8**.
 
 | ID | Bench label | Stimulus | Expected result |
 | --- | --- | --- | --- |
@@ -75,7 +77,7 @@ Bench: [pulse_top_tb.sv](../tb/pulse_top_tb.sv). Target: [pulse_top.sv](../src/p
 
 ## 6. Application verification matrix
 
-Bench: [water_tank_system_tb.sv](../tb/water_tank_system_tb.sv). Targets: [application controller](../src/application/water_tank_controller.sv), PULSE, and the simulation-only [tank](../tb/models/water_tank_model.sv), [pump](../tb/models/pump_model.sv), and [sensor](../tb/models/sensor_model.sv) models. A–E are required application scenarios; F/G additionally verify adopted APP-06/APP-07 decisions and must pass for this implemented demonstration. Current final-run status for P-025…P-031: **PASS in both final runs; evidence in section 8**.
+Bench: [water_tank_system_tb.v](../tb/water_tank_system_tb.v). Targets: [application controller](../src/application/water_tank_controller.v), PULSE, and the simulation-only [tank](../tb/models/water_tank_model.v), [pump](../tb/models/pump_model.v), and [sensor](../tb/models/sensor_model.v) models. A–E are required application scenarios; F/G additionally verify adopted APP-06/APP-07 decisions and must pass for this implemented demonstration. Current final-run status for P-025…P-031: **PASS in the recorded Verilog conversion regressions; evidence in section 8**.
 
 | ID | Case | Stimulus | Expected result |
 | --- | --- | --- | --- |
@@ -95,14 +97,14 @@ Supplemental probes below are distinct from the four committed functional benche
 
 | ID | Priority | Check | Acceptance / evidence scope | Current record |
 | --- | --- | --- | --- | --- |
-| P-032 | Required | ModelSim runner success/failure handling and timeout safeguards. | Successful bench yields marker one and process zero; a deliberate pre-success fatal yields no success marker and nonzero exit. Inspect the log gate and watchdog paths. Actual wall-clock-timeout injection is a separate check if run. | PASS for executed normal-finish and intentional-fatal probes: exits 0 and 4 respectively. Watchdog/log/timeout paths reviewed; no wall-clock-timeout injection claimed. |
-| P-033 | Recommended diagnostic verification | Invalid parameter and unknown control probes. | Expect specific fatal for W = 0, S = 0, D = 0, D = -1; separately timer reset=X, timer enable=X, debounce reset=X, debounce enable=X. No invalid-input hardware recovery is implied. | PASS for all eight temporary probes: expected specific fatal observed. Not added to the committed functional suite. |
+| P-032 | Required | ModelSim runner success/failure handling and timeout safeguards. | Successful bench yields marker one and process zero; a deliberate pre-success `FAIL`/`$stop` yields no success marker and nonzero exit. Inspect the log gate and watchdog paths. Actual wall-clock-timeout injection is a separate check if run. | PASS for executed normal-finish and intentional-check-failure probes: exits 0 and 4 respectively. Watchdog/log/timeout paths reviewed; no wall-clock-timeout injection claimed. |
+| P-033 | Recommended diagnostic verification | Invalid parameter and unknown control probes. | Expect a specific `FAIL` diagnostic and `$stop` for W = 0, S = 0, D = 0, D = -1; separately timer reset=X, timer enable=X, debounce reset=X, debounce enable=X. No invalid-input hardware recovery is implied. | PASS for all eight temporary probes: expected specific `FAIL` diagnostic and `$stop` observed. Not added to the committed functional suite. |
 | P-034 | Required | Static RTL/clock-domain review and Quartus analysis/synthesis for core and application tops. | Inspect signedness, widths, register ownership, latch/feedback inference, reset, two-stage acquisition, warnings, and available resource reports. Exclude model/testbench sources. | Structural review complete. Both synthesis tops PASS with 0 errors and one reviewed warning 20028 each; see [synthesis check](SYNTHESIS_CHECK.md). No physical implementation/CDC signoff. |
 | P-035 | Required | Documentation, traceability, waveform evidence, and integration assumptions. | Match actual source/test interfaces to requirements, timing, architecture, FSM, and APP decisions. Check diagram/trace explanations against actual wave data; retain limitations and open team questions. | See [waveform observations](WAVEFORM_OBSERVATIONS.md), [known issues](KNOWN_ISSUES.md), and [final report](FINAL_REPORT.md). Final delivery review is tracked there; no blanket completed-review claim is made here. |
-| P-036 | Required | Repository/delivery review. | Logical commits, existing work preserved, generated tool outputs isolated, reproducible scripts and documented workflow; initial review stop followed by the user's continuation. | Committed source was validated in a fresh local clone, including a path containing spaces. Final Git/status evidence is tracked in [final report](FINAL_REPORT.md). |
+| P-036 | Required | Repository/delivery review. | Logical commits, existing work preserved, generated tool outputs isolated, reproducible scripts and documented workflow; current scope stops after language conversion and verification. | Clean workspace, independent TEMP library, and fresh-clone validation passed; the clone path contains spaces and its working tree remained clean. All 11 portable TerosHDL source paths resolve. Executable revision and evidence are recorded below and in the [conversion report](VERILOG_CONVERSION.md). |
 | P-037 | Optional / conditional F-11 | Periodic event first edge, spacing, disable/re-enable, and period capture. | Applicable only after an identified consumer adopts a periodic implementation and contract. | **N/A — excluded from the implemented baseline.** No periodic PASS claimed. |
 
-Temporary diagnostic probes are not portable regression assets unless their sources/scripts are deliberately added later. A final report may cite their observed results, but must distinguish those supplemental observations from `sim/run.ps1 -Test all`. Unknown sampled sensor/configuration checks and illegal-state recovery are not exhaustively fault-injected by the four benches.
+Temporary diagnostic probes are not portable regression assets unless their sources/scripts are deliberately added later. A final report may cite their observed results, but must distinguish those supplemental observations from `sim/run.ps1 -Test all`. The deliberately invalid W = 0 fixture also produces ModelSim warning `vsim-8602` for zero replication before its parameter guard stops; this warning does not occur for legal configurations. Unknown sampled sensor/configuration checks and illegal-state recovery are not exhaustively fault-injected by the four benches.
 
 ## 8. Execution and evidence handling
 
@@ -120,20 +122,24 @@ ModelSim-Altera 10.1d invokes ONBREAK on ordinary `$finish` when `-onfinish stop
 
 | Final evidence item | Acceptance | Current result |
 | --- | --- | --- |
-| Compilation of all committed sources/benches | No compile/elaboration errors; relevant warnings reviewed. | PASS in both workspace and clean-clone regressions. |
+| Compilation of all committed sources/benches | All 11 `.v` files compile in Verilog-2001 mode; no compile/elaboration errors; relevant warnings reviewed. | PASS in clean workspace, independent TEMP library, and fresh-clone regressions; no legal-input compiler/simulator warning. |
 | `pulse_timer_tb` | P-001…P-008 pass with stated duration limits. | PASS; 100,985 checks; finish at 684,131 ns. |
 | `pulse_debounce_tb` | P-009…P-017 pass, including full default debounce. | PASS; 1,000,277 checks; finish at 20,004,271 ns. |
 | `pulse_top_tb` | P-018…P-024 pass. | PASS; finish at 1,931 ns. No aggregate check count is emitted by this bench. |
 | `water_tank_system_tb` | P-025…P-031 / A–G pass. | PASS; 715 checks, 684 cycles; finish at 13,671 ns. |
-| Runner and negative diagnostics | Actual expected failure/success evidence matches P-032/P-033. | Executed probes PASS: intentional fatal exit 4, normal finish exit 0, eight specific parameter/control fatals observed. |
+| Runner and negative diagnostics | Actual expected failure/success evidence matches P-032/P-033. | Executed probes PASS: intentional failing procedural check exit 4, normal finish exit 0, eight specific parameter/control `FAIL` diagnostics and stops observed. |
 | Core/application Quartus analysis | Tool output and warning/resource interpretation recorded under P-034. | Both tops PASS; 0 errors and warning 20028 only for each. Structural review complete; [synthesis details](SYNTHESIS_CHECK.md). |
 | Waveform and delivery review | P-035/P-036 evidence agrees with final source and tests. | Evidence in [waveform observations](WAVEFORM_OBSERVATIONS.md); final delivery disposition in [final report](FINAL_REPORT.md). |
 
-The reproduced RTL/test/script source revision is `dda71462f805f3c14a57512ef573cbcc6aa8d583`. The workspace regression artifacts are in `build/modelsim/run-20260910-023217-006`. A fresh local clone at `C:\Users\HP\AppData\Local\Temp\pulse clean validation 98e11292f0414bfcafcaec56046fc6c3` reproduced all four PASS results in `build/modelsim/run-20260910-023634-832` and both synthesis tops in `build/quartus/run-20260910-023715-443`, relative to that clone. Documentation/evidence updates after this source revision do not represent a different tested RTL implementation.
+The Verilog conversion workspace regression artifacts are in `build/modelsim/run-20260910-065458-111`; clean core/application synthesis artifacts are in `build/quartus/run-20260910-065547-884`. A separately created TEMP library at `C:\Users\HP\AppData\Local\Temp\pulse-verilog-bench-d98df18a568e4174b9517b863f0ba81a` compiled all 11 `.v` files using the installed ModelSim-Altera 10.1d `vlog -vlog01compat` and reproduced all four PASS results with exactly the original counts and finish times. These conversion runs replace the earlier implementation's evidence; the executable source revision and final fresh-checkout record are in [VERILOG_CONVERSION.md](VERILOG_CONVERSION.md).
+
+Executable revision `c9c9016d3703e60e37317406c354b07f4bde38f0` was separately cloned with `git clone --no-hardlinks` and checked out detached at `C:\Users\HP\AppData\Local\Temp\pulse Verilog clean validation 08e9035effda424d9f74baa2c85da0b3`. No build directory existed before execution. `sim/run.ps1 -Test all` reproduced all four PASS results, counts, and finish times in `build/modelsim/run-20260910-070543-875`; `synth/run.ps1 -Top all -QuartusBin C:/altera/13.0sp1/quartus/bin64` reproduced both successful synthesis results in `build/quartus/run-20260910-070543-799`. These paths are relative to the clone. No compiler/simulator warnings occurred, and each synthesis top reported only warning 20028. All 11 `pulse.teroshdl.yml` entries are relative `.v` paths with `file_type=verilogSource`; every source and the top-level path resolve in the clone. Its working tree remained clean after both runs.
 
 The clean synthesis map reports estimate 224 logic elements / 92 registers for `pulse_top` and 241 logic elements / 96 registers for the application. These report estimates differ from the tool's informational logic-cell fields of 225 and 242; do not interchange the two metrics. Neither is a fitted physical utilization/timing result. Warning 20028 and the detailed scope are explained in [SYNTHESIS_CHECK.md](SYNTHESIS_CHECK.md).
 
-Supplemental parameter/control sources `invalid_parameters_tb.sv` and `unknown_controls_tb.sv`, plus their per-case transcripts, were run under `C:\Users\HP\AppData\Local\Temp\pulse_core_units_47274e510123475daa7c861cd2e16cf8`. Their temporary driver intentionally exits 7 after collecting the expected fatal, so acceptance uses the specific diagnostic as well as termination. The normal-finish/intentional-fatal runner experiment is under `C:\Users\HP\AppData\Local\Temp\pulse-application-527a4e35832b46e18e6df956904a340b`. These paths record local supplemental provenance, not build dependencies or committed regression content. Retained limitations are collected in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+Supplemental Verilog drivers and transcripts are under `C:\Users\HP\AppData\Local\Temp\pulse-verilog-diagnostics-3b18d728f1b04b5583b11da343865f63`. `diagnostics.v` covers the eight P-033 cases. Commands `vlog -vlog01compat -work work` and `vsim -c -do diag_W0.do` compile/run the corresponding sources and per-case macros. Every case produced its specific `FAIL` diagnostic and stopped with `reached_end=0`; the TEMP macros then deliberately returned zero after checking that premature stop. A TEMP application-bench copy inserted `require_true(1'b0, ...)` immediately before setting `test_passed`. The unmodified repository `sim/simulate.do`, selected with `PULSE_TESTBENCH=water_tank_system_tb`, returned exit 4 at cycle 684 with `test_passed=0` and no success marker. ModelSim's `-l` transcript omits the Tcl stderr line, so acceptance uses the logged failing check, observed marker, and actual process exit together.
+
+An additional TEMP `.v` source containing a `logic` declaration was rejected by `vlog -vlog01compat -work work invalid_systemverilog.v` with a syntax error and exit 2. This is a compiler-mode guard for the language conversion, not a functional design test. TEMP paths above record local supplemental provenance, not build dependencies or committed regression content. Retained limitations are collected in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 ## 9. Exit criteria and explicit exclusions
 

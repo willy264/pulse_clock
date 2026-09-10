@@ -2,6 +2,8 @@
 
 Status: working software/RTL baseline following the user's instruction to continue on 2026-09-10. External team interfaces and physical timing values remain **PROVISIONAL — pending agreement with integration team**.
 
+Implementation language: Verilog HDL
+
 ## 1. Decisions and scope
 
 This architecture applies the classified requirements and A-01 through A-12 in [requirements](PULSE_REQUIREMENTS.md). The user's continuation permits work beyond the original four-document review stop. Internal design review precedes RTL; it does not constitute SENTINEL/GUARDIAN/VOICE approval.
@@ -41,15 +43,17 @@ All arrows carrying control/status are synchronous to `clk` except the provision
 
 ## 3. Module contracts
 
-| Planned source | Parameters | Inputs | Outputs | Purpose |
+| Source | Parameters | Inputs | Outputs | Purpose |
 | --- | --- | --- | --- | --- |
-| `src/pulse_timer.sv` | `TIMER_WIDTH = 32` | `clk`, `reset`, `enable`, `timer_start`, `timer_cancel`, unsigned `cfg_timer_cycles[W-1:0]` | `timer_busy`, `timer_done` | One independent configurable elapsed interval. |
-| `src/pulse_debounce.sv` | `DEBOUNCE_CYCLES = 1_000_000` | `clk`, `reset`, `enable`, scalar `sensor_in` | scalar `sensor_debounced`, `sensor_valid` | Synchronize and qualify one Boolean sensor. |
-| `src/pulse_top.sv` | `TIMER_WIDTH = 32`, `SENSOR_CHANNELS = 2`, `DEBOUNCE_CYCLES = 1_000_000` | Core ports in [interface](PULSE_INTERFACE.md) | Core ports in [interface](PULSE_INTERFACE.md) | Wire one timer and S generated debouncers; no additional sequential latency. |
+| `src/pulse_timer.v` | `TIMER_WIDTH = 32` | `clk`, `reset`, `enable`, `timer_start`, `timer_cancel`, unsigned `cfg_timer_cycles[W-1:0]` | `timer_busy`, `timer_done` | One independent configurable elapsed interval. |
+| `src/pulse_debounce.v` | `DEBOUNCE_CYCLES = 1_000_000` | `clk`, `reset`, `enable`, scalar `sensor_in` | scalar `sensor_debounced`, `sensor_valid` | Synchronize and qualify one Boolean sensor. |
+| `src/pulse_top.v` | `TIMER_WIDTH = 32`, `SENSOR_CHANNELS = 2`, `DEBOUNCE_CYCLES = 1_000_000` | Core ports in [interface](PULSE_INTERFACE.md) | Core ports in [interface](PULSE_INTERFACE.md) | Wire one timer and S generated debouncers; no additional sequential latency. |
 
-`CLOCK_FREQ_HZ` is integration/testbench metadata, not an unused production parameter. Every runtime configuration bus is unsigned. Parameter domains are W >= 1, S >= 1, and 1 <= D <= 2,147,483,647 for the selected positive integer debounce parameter. Calculate debounce width without an overflowing `D + 1` expression: D = 1 needs one bit; otherwise `clog2(D) + 1` only if D is a power of two, else `clog2(D)`. Equivalently use `clog2(D + 1)` with a proven sufficiently wide unsigned intermediate. Width covers the inclusive range 0…D.
+`CLOCK_FREQ_HZ` is integration/testbench metadata, not an unused production parameter. Every runtime configuration bus is unsigned. Parameter domains are W >= 1, S >= 1, and 1 <= D <= 2,147,483,647 for the selected positive integer debounce parameter. The Verilog-2001 constant function `inclusive_count_width(D)` computes the bits needed for the inclusive range 0…D by starting at one bit and repeatedly shifting D right until it is at most one. This equals `max(1, ceil(log2(D + 1)))` for valid D without evaluating an overflowing `D + 1`: D = 1 needs one bit, D = 4 needs three, and the maximum valid D needs 31.
 
-Elaboration-invalid parameters are rejected by simulation checks in the verification flow; they are not runtime fault states. Production logic uses `logic`, `always_ff`, and explicit widths compatible with the installed tools. Simulation constructs belong in testbenches or clearly synthesis-excluded parameter checks.
+Elaboration-invalid parameters are rejected by simulation checks in the verification flow; they are not runtime fault states. Production logic uses `reg` for procedurally assigned storage, `wire` for input and child-driven connections, `always @(posedge clk)` with nonblocking register assignments, and explicitly sized constants. Debounce state values are two-bit `localparam` encodings held in `reg [1:0] state`. The application controller uses `always @(*)` for its combinational decisions. These Verilog-2001 constructs preserve the existing state encodings and edge behavior.
+
+Simulation diagnostics belong in testbenches or `synthesis translate_off` sections. Procedural invariant checks use `if ((condition) !== 1'b1)` to detect both false and unknown conditions, then issue a `FAIL` diagnostic with `$display` and stop with `$stop`; the simulation runner reports failure. Parameter checks follow the same diagnostic path. No simulation-only diagnostic becomes synthesized hardware.
 
 ## 4. Timer datapath and control
 
@@ -95,7 +99,7 @@ RTL analysis will inspect widths, multiple drivers, latch inference, reset behav
 
 ## 8. Application boundary and verification handoff
 
-The later water-tank controller is an explicitly provisional GUARDIAN demonstration harness around `pulse_top`. Simulation-only tank/pump/noise models belong under `tb/models`, distinct from synthesizable `src/application` controller logic. Its level encoding, response definition, and recovery policy must be written before implementing that harness.
+The water-tank controller is an explicitly provisional GUARDIAN demonstration harness around `pulse_top`. Simulation-only tank/pump/noise models are Verilog HDL files under `tb/models`, distinct from synthesizable `src/application/water_tank_controller.v`. Its level encoding, response definition, and recovery policy remain the existing assumptions in [water-tank behavior](WATER_TANK_BEHAVIOR.md); the language conversion does not revise them.
 
 Verify each of the three baseline modules. Boundary checks must include one-cycle intervals, reduced-width exhaustive duration coverage, maximum 32-bit configuration cancellation without waiting 85 s in real time, representative default-duration runs, startup qualification, mismatch at expiry, concurrent channels, and timer progress under noise. Optional periodic test requirements become applicable only when its extension is adopted.
 

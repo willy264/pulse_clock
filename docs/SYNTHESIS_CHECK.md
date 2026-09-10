@@ -2,22 +2,24 @@
 
 Executed on 2026-09-10 with Quartus II 64-bit **13.0.1 Build 232 SP1 Web Edition** using `synth/run.ps1`. Both default-parameter tops completed Analysis & Synthesis with **0 errors and 1 warning each**.
 
+Implementation language: Verilog HDL (Verilog-2001).
+
 ## Scope
 
-The generated local projects target representative Cyclone IV E `EP4CE22F17C6` solely to make RTL analysis concrete. This is not a selected university board or physical implementation. The four `src` files are synthesized; `tb` models and diagnostic assertions within synthesis translate-off regions are excluded. `pulse.sdc` records the illustrative 50 MHz clock.
+The generated local projects target representative Cyclone IV E `EP4CE22F17C6` solely to make RTL analysis concrete. This is not a selected university board or physical implementation. The four `src` files are synthesized; `tb` models and procedural diagnostic checks within synthesis translate-off regions are excluded. `pulse.sdc` records the illustrative 50 MHz clock. `synth/check.tcl` generates QPF/QSF projects with `.v` sources assigned as `VERILOG_FILE` and `VERILOG_INPUT_VERSION` set to `VERILOG_2001`.
 
 No fitter, pin assignment, programming image, device programming, post-fit timing analysis, CDC MTBF analysis, or netlist equivalence run was performed. These results establish that the installed synthesis tool accepts the RTL; they do not establish 50 MHz timing closure or physical reliability.
 
 ## Observed reports
 
-Initial repository run: `build/quartus/run-20260910-023045-118`. Each top has an `output_files/<top>.map.rpt`, `.map.summary`, generated QPF/QSF, and `quartus.log`.
+Clean conversion run: `build/quartus/run-20260910-065547-884`, using executable revision `c9c9016d3703e60e37317406c354b07f4bde38f0`. Each top has an `output_files/<top>.map.rpt`, `.map.summary`, generated QPF/QSF, and `quartus.log`.
 
 | Top | Estimated logic elements from map report | Registers from map report | Errors | Warnings |
 | --- | --- | --- | --- | --- |
 | `pulse_top` | 224 | 92 | 0 | 1 |
 | `water_tank_controller` | 241 | 96 | 0 | 1 |
 
-These are pre-fit analysis/synthesis counts, not final fitted area. The informational implementation messages report 225/242 logic cells; that is a different report field and is not substituted for the estimated logic-element values above. There is no power/area target supplied by the project.
+These counts exactly match the baseline before language conversion. They are pre-fit analysis/synthesis counts, not final fitted area. The informational implementation messages report 225/242 logic cells; that is a different report field and is not substituted for the estimated logic-element values above. There is no power/area target supplied by the project.
 
 ## Warning and information review
 
@@ -30,4 +32,4 @@ No latch, multiple-driver, width-truncation, or combinational-loop warning was r
 
 ## Reproduction and limits
 
-Run `./synth/run.ps1` from PowerShell with Quartus discoverable from PATH, QUARTUS_ROOTDIR, or `-QuartusBin`. A new project directory is created every time; existing reports are preserved. A separate clean-checkout execution is recorded in the [final report](FINAL_REPORT.md). Use the warnings in the generated reports as the source of truth on another machine/version.
+Run `./synth/run.ps1` from PowerShell with Quartus discoverable from PATH, QUARTUS_ROOTDIR, or `-QuartusBin`. A new project directory is created every time; existing reports are preserved. A separate clean-checkout execution is recorded in the [conversion report](VERILOG_CONVERSION.md). Use the warnings in the generated reports as the source of truth on another machine/version.

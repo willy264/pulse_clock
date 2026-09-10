@@ -4,11 +4,15 @@ Status: **Working baseline following the user's continuation on 2026-09-10.** Ex
 
 Prepared: 2026-09-10. Application: Water Tank Level & Dry-Run Protection Controller.
 
+Implementation language: Verilog HDL
+
 ## 1. Scope and authority
 
 The source is the user-supplied **MASTER PROJECT PROMPT**, particularly sections 1–5, 13–16, 20–24, and 37. No separate university project sheet, sensor specification, board specification, or other team's interface was present in the workspace. The first four-document deliverable stopped for review as section 37 requested. The user's subsequent instruction, “alright continue then,” permits continued design and implementation using the documented assumptions as the working baseline.
 
-The eventual product is a reusable PULSE digital timing block, implemented in synthesizable SystemVerilog and demonstrated through ModelSim simulation of a water-tank controller. PULSE qualifies sensor transitions and measures intervals. GUARDIAN interprets those observations and owns pump control and protection policy. A timer expiry alone indicates elapsed time, not proof of a physical dry-run.
+The user's latest explicit language correction supersedes the original prompt's language requirement: production RTL, simulation models, and testbenches shall use Verilog HDL, with Verilog-2001 syntax and `.v` filenames compatible with Quartus 13.0.1 and ModelSim-Altera 10.1d. This correction preserves the existing architecture, functional requirements, timing, and verification intent. The current work ends after conversion, clean compilation, simulation, synthesis verification, and reporting; new features are outside this conversion scope. See [conversion record](VERILOG_CONVERSION.md).
+
+The product is a reusable PULSE digital timing block, implemented in synthesizable Verilog HDL and demonstrated through ModelSim simulation of a water-tank controller. PULSE qualifies sensor transitions and measures intervals. GUARDIAN interprets those observations and owns pump control and protection policy. A timer expiry alone indicates elapsed time, not proof of a physical dry-run.
 
 This document defines required capabilities and proposed measurable behavior. Internal architecture/FSM review precedes implementation. Continued project work does not finalize another team's contract or authorize physical implementation.
 
@@ -50,14 +54,14 @@ The one-shot serves both reusable delays and the proposed protection window; a d
 
 | ID | Priority / origin | Requirement and later evidence |
 | --- | --- | --- |
-| N-01 | Required / explicit | Production RTL shall be synthesizable SystemVerilog. No functional `#delay`, file I/O, simulation clock generation, or `$display` logic. Separate testbench-only behavior. Review and later Quartus analysis provide evidence. |
+| N-01 | Required / latest explicit user correction | Production RTL shall be synthesizable Verilog HDL using Verilog-2001 syntax and `.v` source files. Models and testbenches shall also use Verilog HDL. No functional `#delay`, file I/O, simulation clock generation, or `$display` logic in synthesized hardware. Keep simulation diagnostics in testbenches or synthesis-excluded checks. Verify with clean ModelSim-Altera 10.1d compilation and Quartus 13.0.1 analysis/synthesis. |
 | N-02 | Required / explicit | Use deterministic, modular RTL without inferred latches, multiple drivers, combinational feedback, accidental signed arithmetic, or unchecked width truncation. Review compiler/synthesis warnings. |
 | N-03 | Required / explicit | Document clock-domain ownership. Prefer synchronous clock enables to unnecessary derived clocks. Debouncing shall not be presented as a replacement for synchronization. |
 | N-04 | Required / explicit | Use named parameters/configuration values with units and valid ranges; justify defaults. Resource counts and counter widths shall follow those ranges. No area/power target has been supplied. |
 | N-05 | Required / explicit | Specify timing accuracy, rounding, minimum/maximum delay, pulse width, reset behavior, and timer boundaries. Simulation shall check exact clock edges under the approved contract. |
 | N-06 | Required / explicit | Keep the design understandable and reusable; add a module only for a meaningful function. No bus protocol, CPU, firmware, networking, or unrelated IP is required. |
 | N-07 | Required / explicit | Use the existing ModelSim-Altera toolchain as the primary simulator. Later provide portable compile/run/wave scripts without repository-wide machine-specific executable paths. |
-| N-08 | Required / explicit | Every major implemented module shall have a testbench. Use self-checking verification wherever practical and assertions where useful, with explicit pass/fail reporting and simulation timeout protection. Test unit, top-level integration, and application behavior. |
+| N-08 | Required / explicit, language syntax updated by user correction | Every major implemented module shall have a testbench. Use self-checking Verilog tasks and procedural invariant checks, with explicit pass/fail reporting and simulation timeout protection. A check must reject false or unknown conditions; failure diagnostics use `$display` followed by `$stop`, and the runner must return failure. Preserve unit, top-level integration, and application test cases. |
 | N-09 | Required / explicit | Document provisional integration assumptions and obtain agreement before calling SENTINEL/GUARDIAN/VOICE/ANCHOR interfaces finalized. |
 | N-10 | Required / explicit | In later phases maintain traceability, known issues, simulation evidence, and an honest final report. An unrun test shall never be reported as PASS. |
 | N-11 | Required / explicit | Perform later Quartus RTL/synthesis checks and review warnings. Physical implementation is future work and shall not be started now. |

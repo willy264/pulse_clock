@@ -1,5 +1,7 @@
 # Simulation and RTL-analysis guide
 
+Implementation language: Verilog HDL (Verilog-2001).
+
 Validated environment: Windows PowerShell, ModelSim-Altera Starter 10.1d (Tcl 8.4.14), and Quartus II 13.0.1 SP1. The exact local installation findings are preserved in [inventory](project_inventory.md). The scripts need no Icarus, Verilator, GTKWave, Vivado, Python, or additional packages.
 
 ## 1. Tool discovery and automated simulation
@@ -14,9 +16,9 @@ Use `Get-Command vsim` and `vsim -version` to check PATH. From the repository ro
 
 The optional installation directory is local invocation configuration, not a repository hardcoded path. If execution policy blocks a locally reviewed script, a process-local invocation is `powershell -NoProfile -ExecutionPolicy Bypass -File .\sim\run.ps1`; no global policy change is required.
 
-Each invocation creates `build/modelsim/run-<timestamp>` without deleting prior results. It copies a local `modelsim.ini`, creates/maps `work`, compiles SystemVerilog with `vlog -sv`, and loads each selected bench in its own ModelSim process. Design sources compile before dependent wrappers/models/benches; the explicit list is in `sim/compile.do`.
+Each invocation creates `build/modelsim/run-<timestamp>` without deleting prior results. It copies a local `modelsim.ini`, creates/maps `work`, compiles all `.v` sources with `vlog -vlog01compat`, and loads each selected bench in its own ModelSim process. Design sources compile before dependent wrappers/models/benches; the explicit list is in `sim/compile.do`.
 
-Each bench exposes `test_passed`, sets it only after its checks, then calls `$finish`. ModelSim 10.1d also invokes `onbreak` on a normal finish, so the script resumes the macro and checks that flag. `echo` writes a success marker into the transcript; plain Tcl `puts` is not sufficient for this tool's transcript behavior. The PowerShell runner also rejects Fatal/Error diagnostics and nonzero process exits. A deliberate fatal probe was verified to fail the runner's success check.
+Each bench exposes `test_passed`, sets it only after its checks, then calls `$finish`. ModelSim 10.1d also invokes `onbreak` on a normal finish, so the script resumes the macro and checks that flag. `echo` writes a success marker into the transcript; plain Tcl `puts` is not sufficient for this tool's transcript behavior. Verilog failure checks print a `FAIL` diagnostic and call `$stop` before the success flag can be set. The PowerShell runner rejects `FAIL`, Fatal/Error diagnostics, nonzero process exits, and missing success markers. A deliberately failing Verilog check was verified to return runner exit 4 with no success marker.
 
 The default process timeout is 180 seconds per invocation; change it with `-TimeoutSeconds` if the machine is slower. Testbenches have independent bounded simulation watchdogs. A successful compile alone cannot produce a successful regression result.
 
@@ -69,12 +71,16 @@ WLF time units and the testbenches use a nominal 20 ns clock; application VCD pr
 .\synth\run.ps1 -Top pulse_top -QuartusBin 'C:\your\quartus\bin64'
 ```
 
-Quartus is discovered from an explicit argument, PATH, or `QUARTUS_ROOTDIR`. The runner creates a fresh local project for each selected top under `build/quartus/run-<timestamp>`. It includes only the four synthesizable source files. Testbenches/models and synthesis-excluded diagnostic checks do not become functional hardware.
+Quartus is discovered from an explicit argument, PATH, or `QUARTUS_ROOTDIR`. The runner creates a fresh local project for each selected top under `build/quartus/run-<timestamp>`. It includes only the four synthesizable `.v` source files as `VERILOG_FILE` assignments, with `VERILOG_INPUT_VERSION VERILOG_2001`. Testbenches/models and synthesis-excluded diagnostic checks do not become functional hardware.
 
 The default representative analysis device is Cyclone IV E `EP4CE22F17C6`; `-Device` can select another compatible Cyclone IV E part supported by the installation. The example SDC declares the assumed 20 ns input clock. Only Analysis & Synthesis (`quartus_map`) runs. No fitter, timing sign-off, pin assignments, programmer, or physical device is invoked. Reports and warning review are in [synthesis check](SYNTHESIS_CHECK.md).
 
 ## 6. TerosHDL and clean-checkout use
 
-The command-line workflow is independent of global editor choices. To use TerosHDL, select ModelSim for this project and import the SystemVerilog files in `compile.do` order, with the desired testbench as simulation top. Do not treat the previously discovered GHDL selection as appropriate for this SV workflow. No global settings were changed by this work.
+The repository includes [pulse.teroshdl.yml](../pulse.teroshdl.yml), a portable TerosHDL generic-project export with relative paths, all 11 sources in compile order, and `water_tank_system_tb` as the default top. Import this file through the TerosHDL project manager on another checkout. On this workstation, `PULSE_Verilog` is already registered and selected in `C:\Users\HP\.teroshdl2_prj.json`. Use **Developer: Reload Window** if the current VS Code session has cached the previous project list.
 
-The repository was also tested in a fresh local Git clone whose directory name contains spaces, using its own empty build directories. That validates tracked source completeness and path handling. Reproduce by cloning the repository, confirming tools, and running the two scripts above; no generated work library or absolute installation mapping needs to be copied.
+The project selects ModelSim for compilation and Verilog linting, with `-vlog01compat` in both configurations. `.vscode/settings.json` associates `.v` with the Verilog language. The installed TerosHDL 7.0.3 loader recognizes these files as `verilogSource`. Its supported Verilog version metadata labels are `2000` and `2005`; the export uses its legacy `2000` label and explicitly enforces Verilog-2001 through the ModelSim option. Both the portable export and persisted local registration were loaded successfully using the installed extension's project loader. Global tool defaults and unrelated projects were preserved.
+
+The PowerShell runner is the authoritative self-checking regression because it checks the test success flag and transcript. An interactive editor simulation alone does not establish a regression PASS.
+
+The converted repository is verified with fresh build directories; the [conversion report](VERILOG_CONVERSION.md) records current clean-checkout evidence, including a directory name containing spaces. That validates tracked source completeness and path handling. Reproduce by cloning the repository, confirming tools, and running the two scripts above; no generated work library or absolute installation mapping needs to be copied.

@@ -2,15 +2,21 @@
 
 Prepared: 2026-09-10. Status: **Baseline design for implementation; external clock, sensor, and application assumptions remain provisional.**
 
+Implementation language: Verilog HDL
+
 This document makes the cycle contracts in [PULSE_TIMING_SPEC.md](PULSE_TIMING_SPEC.md) and [PULSE_INTERFACE.md](PULSE_INTERFACE.md) concrete. The [architecture](PULSE_ARCHITECTURE.md) defines the module boundaries. No pump-control or dry-run decision state belongs to these machines. The optional periodic generator is omitted until F-11 has an identified consumer.
 
 ## 1. Reading the transitions
 
 All machines advance on the rising edge of the same `clk`. Inputs, guards, and register values used in a transition are their values **before** that edge. Updates take effect **after** it. Sequential implementation must preserve this old-value convention, including between synchronizer stages and their consumer.
 
+The Verilog implementation uses `always @(posedge clk)` and nonblocking assignments to `reg` storage for these transitions. `wire` connections carry child outputs through `pulse_top`. Language conversion preserves every transition, priority, encoding, and latency documented here.
+
 Reset is active-high and synchronous. Sampling `reset = 1` has highest priority. Sampling `enable = 0` has the same clearing effect but lower priority. Neither operation pauses an interval. Known outputs require a sampled reset; power-up values before it are not specified.
 
 `W = TIMER_WIDTH >= 1`, `S = SENSOR_CHANNELS >= 1`, and `1 <= D = DEBOUNCE_CYCLES <= 2,147,483,647` for the selected positive integer debounce parameter. Store the debounce remaining count in `B = max(1, ceil(log2(D + 1)))` unsigned bits. The inclusive range is `0..D`; intermediate parameter arithmetic must not overflow while deriving B. Load and compare explicitly sized unsigned values. Reject invalid elaboration parameters in the verification flow before relying on simulation or synthesis results.
+
+`inclusive_count_width(D)` is the Verilog-2001 constant function implementing this mathematical width. It counts right shifts of positive D, starting with one bit, so the maximum valid D yields 31 bits without computing `D + 1` in a signed integer.
 
 ## 2. One-shot timer: `pulse_timer`
 
@@ -53,7 +59,7 @@ Evaluate rows from top to bottom. Take exactly one row per edge. `timer_done` de
 | 6 | IDLE; `timer_start = 1` | 1 | `max(1, cfg_timer_cycles)` | 0 | Capture and start a new interval. |
 | 7 | IDLE; no start | 0 | 0 | 0 | Remain available. |
 
-The RUNNING invariant is `1 <= remaining <= 2^W - 1`. There is no legal RUNNING/zero-count transition. This is an assertion obligation, not an additional fault-recovery feature. A subtract path is taken only from a legally reachable count greater than one.
+The RUNNING invariant is `1 <= remaining <= 2^W - 1`. There is no legal RUNNING/zero-count transition. A simulation-only procedural check enforces this invariant; it does not add a fault-recovery feature. A subtract path is taken only from a legally reachable count greater than one.
 
 There is no unused binary state encoding because busy is one bit. X/Z state or controls are invalid simulation conditions; no analog fault-tolerance behavior is claimed. IDLE always has zero remaining after a legal transition. Done and busy can never both be high after a legal edge.
 
@@ -110,6 +116,8 @@ During normal operation, an input captured by stage1 on edge `c0` can reach stag
 ## 4. Sensor qualification: one machine per `pulse_debounce`
 
 ### 4.1 Registers, encoding, and outputs
+
+`WAIT_SAMPLE`, `VERIFYING`, and `STABLE` are explicit two-bit `localparam` values. The current state is held in `reg [1:0] state`; its encodings and unused-state recovery remain unchanged.
 
 | Register/state | Width or encoding | Meaning / reset value |
 | --- | --- | --- |
@@ -196,7 +204,7 @@ After normal initialization the following invariants must hold:
 - STABLE has valid one and `candidate = sensor_debounced`.
 - Valid cannot fall during legal enabled operation. Before initial qualification, valid and output remain zero.
 
-Violations of these invariants are simulation failures. The implementation need not add counter-corruption detectors, a fault output, or new externally visible recovery semantics. X/Z samples, configuration, control, or state are not additional valid inputs; assertions/testbench checks should report them at their appropriate observation or acceptance points. The default state branch is not evidence of recovery from analog metastability or all hardware faults.
+Violations of these invariants are simulation failures. The implementation need not add counter-corruption detectors, a fault output, or new externally visible recovery semantics. X/Z samples, configuration, control, or state are not additional valid inputs; procedural checks report them at their appropriate observation or acceptance points. Checks use `if ((condition) !== 1'b1)` so a false or unknown result emits a `FAIL` diagnostic with `$display`, executes `$stop`, and causes the simulation runner to fail. RTL diagnostics remain inside `synthesis translate_off` sections. The default state branch is not evidence of recovery from analog metastability or all hardware faults.
 
 ## 5. Composition and implementation review
 

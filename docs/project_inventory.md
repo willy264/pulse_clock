@@ -4,7 +4,7 @@ Inspection date: 2026-09-10. Team: PULSE.
 
 Scope: Phase 0 reconnaissance and the four-document review package requested by master prompt §37.
 
-This is the historical reconnaissance snapshot. The initial review stop was completed; the user's subsequent continuation led to the implemented baseline described in [README](../README.md) and [final report](FINAL_REPORT.md). Statements below about missing RTL/tests describe the original empty workspace, not the current delivered repository.
+This is the historical reconnaissance snapshot. The initial review stop was completed; the user's subsequent continuation led to the implemented baseline described in [README](../README.md) and [final report](FINAL_REPORT.md). The current language correction and completed tool configuration are recorded in [VERILOG_CONVERSION.md](VERILOG_CONVERSION.md). Statements below about missing RTL/tests describe the original empty workspace, not the current delivered repository.
 
 ## 1. Workspace found at entry
 
@@ -16,7 +16,7 @@ No `AGENTS.md` was found in the workspace or at any ancestor directory up to `C:
 
 | Category | Existing project files at entry | Implication |
 | --- | --- | --- |
-| HDL (`.sv`, `.v`, `.vhd`) | None | No modules, ports, counter implementation, or reset convention to inherit. |
+| HDL source files | None | No modules, ports, counter implementation, or reset convention to inherit. |
 | Requirements/application specification | None | The supplied attachment is the sole project authority available. |
 | SENTINEL/GUARDIAN/ANCHOR/VOICE interfaces | None | All proposed connections must be marked provisional. |
 | TerosHDL / VS Code project settings | None | No project tool selection or file list exists. |
@@ -37,7 +37,7 @@ The latest user attachment is titled **MASTER PROJECT PROMPT — Water Tank Leve
 - Read as UTF-8; no additional university project sheet or other-team contract was supplied.
 - Sections 1–5 define the role and capabilities; section 37 limits the current work to reconnaissance and four initial documents, then a review stop. The broader implementation plan describes later phases.
 
-The attachment path is provenance on this workstation, not a build dependency. The documents record the relevant requirements and assumptions in repository files. The prompt's 50 MHz, 20 ms, example module names, and example ports are examples, not fixed application requirements.
+The user's subsequent explicit correction requires Verilog HDL and supersedes the attachment's implementation-language choice; all timing and architectural requirements remain in force. The attachment path is provenance on this workstation, not a build dependency. The documents record the relevant requirements and assumptions in repository files. The prompt's 50 MHz, 20 ms, example module names, and example ports are examples, not fixed application requirements.
 
 ## 3. Installed tools and verification limits
 
@@ -53,14 +53,14 @@ The user-listed toolchain was checked using command discovery, scoped installati
 | Git | **2.53.0.windows.2**, executable in `C:\Program Files\Git\cmd` | Version reporting succeeded; existing local author configuration is available for commits. |
 | GitHub CLI | **2.97.0**, executable in the user's WinGet package directory | Version reporting succeeded. Remote/authentication operations were not needed or checked. |
 
-Version reporting demonstrates that executables can start; it does **not** demonstrate HDL compilation, supported SystemVerilog/assertion features, elaboration, a working simulation license/session, or successful synthesis. Compatibility of the eventual coding style must be established with these installed versions in the simulation phase. No alternative simulator is required for the current work.
+Version reporting demonstrates that executables can start; it does **not** demonstrate HDL compilation, supported HDL and diagnostic features, elaboration, a working simulation license/session, or successful synthesis. Compatibility of the eventual coding style must be established with these installed versions in the simulation phase. No alternative simulator is required for the current work.
 
 ### ModelSim configuration
 
 - Installation configuration exists at `C:\altera\13.0sp1\modelsim_ase\modelsim.ini`. Standard library mappings use `$MODEL_TECH`; `Resolution` is `ps` and `TranscriptFile` is `transcript`.
 - No project `modelsim.ini`, mapped project `work` library, testbench, `.do` file, or waveform configuration exists.
 - `MODELSIM` and `MTI_HOME` are unset in the inspected shell. The ModelSim executable directory is on PATH.
-- A later simulation phase must explicitly create/map a local library and define SystemVerilog compilation, test selection, exit status, and waveform setup. The installation's library mappings do not constitute a project configuration.
+- A later simulation phase must explicitly create/map a local library and define HDL compilation, test selection, exit status, and waveform setup. The installation's library mappings do not constitute a project configuration.
 
 ### TerosHDL and VS Code configuration
 
@@ -71,7 +71,7 @@ Version reporting demonstrates that executables can start; it does **not** demon
 - `C:\Users\HP\.teroshdl2_prj.json` exists but contains no `pulse_clock` reference.
 - Relevant VS Code user settings in `C:\Users\HP\AppData\Roaming\Code\User\settings.json` select TerosHDL as the Verilog formatter; no relevant simulator executable path was found there.
 
-**Setup gap:** the global TerosHDL selection does not currently describe the requested ModelSim/SystemVerilog workflow. ModelSim can already be invoked from PATH. Later project setup should select ModelSim and define the PULSE file list without treating the existing GHDL selection as a project requirement. Global editor configuration was left unchanged during reconnaissance.
+**Setup gap:** the global TerosHDL selection does not currently describe the requested ModelSim workflow. ModelSim can already be invoked from PATH. Later project setup should select ModelSim and define the PULSE file list without treating the existing GHDL selection as a project requirement. Global editor configuration was left unchanged during reconnaissance.
 
 ### Quartus configuration
 

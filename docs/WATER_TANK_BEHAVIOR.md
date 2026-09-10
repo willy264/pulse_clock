@@ -2,9 +2,11 @@
 
 Status: **PROVISIONAL — engineering simulation assumptions, not another team's finalized implementation.** Written before the application RTL/model. These choices make the required application tests concrete while Q-01 through Q-08 remain open for real integration.
 
+Implementation language: Verilog HDL
+
 ## 1. Ownership and assumptions
 
-`src/application/water_tank_controller.sv` is a synthesizable demonstration of GUARDIAN policy around PULSE. It is replaceable when GUARDIAN supplies an agreed interface. Simulation-only tank, pump, and noise models belong in `tb/models`; they model digital cause/effect and make no hydraulic, electrical, mechanical, or hardware safety claim.
+`src/application/water_tank_controller.v` is a synthesizable demonstration of GUARDIAN policy around PULSE. It is replaceable when GUARDIAN supplies an agreed interface. Simulation-only tank, pump, and noise models are `.v` files in `tb/models`; they model digital cause/effect and make no hydraulic, electrical, mechanical, or hardware safety claim. The Verilog-2001 conversion preserves all application assumptions and model behavior below.
 
 | ID | Demonstration assumption | Reason / implication |
 | --- | --- | --- |
@@ -34,6 +36,8 @@ Use `sensor_in[1:0] = {full, above_low}` at the PULSE boundary.
 
 All controller state changes occur at rising `clk`. `pump_enable` is high only in WAIT_RESPONSE/FILLING; `dry_run_detected` and `protection_active` are high only in PROTECTED. The latter two are separate named observability outputs with the same meaning in this small demonstration. Reset/disable returns to IDLE with pump and fault indications low on the sampling edge. Controls are synchronous.
 
+The state encodings are two-bit `localparam` values: IDLE `00`, WAIT_RESPONSE `01`, FILLING `10`, and PROTECTED `11`. `reg [1:0] state` is updated in `always @(posedge clk)`. An `always @(*)` block assigns `next_state`, `timer_start`, and `timer_cancel`, with defaults on every path. Status outputs and child-driven connections are `wire` nets. This preserves the same-edge pump/start relationship and all priorities below.
+
 | Old state | Condition, in priority order after reset/disable | Next state / timer action |
 | --- | --- | --- |
 | IDLE | All inputs valid, code LOW | WAIT_RESPONSE; assert one-cycle start and capture `cfg_protection_cycles`. Pump becomes enabled on that same edge. |
@@ -55,6 +59,8 @@ An expiry event is registered by PULSE at N cycles after start. The controller o
 ## 4. Model and test requirements
 
 `pump_model` exposes commanded running state and source-dependent flow. `water_tank_model` integrates named fill/drain steps at a configured step period, saturates at 0/100, and resets to a configured initial level. `sensor_model` converts level to thresholds and supports a test-controlled noise mask. These models are verification assets, excluded from the synthesis file list.
+
+All models and `tb/water_tank_system_tb.v` use Verilog-2001 syntax. The tank model's `output integer level` retains its signed 32-bit arithmetic; the sensor model receives the same value through `input wire signed [31:0] level`. Testbench checks preserve false/X/Z failure detection using case inequality, packed 256-byte diagnostic messages, `$display`, and `$stop`, with failure enforced by the simulation runner.
 
 The self-checking application testbench must demonstrate:
 
