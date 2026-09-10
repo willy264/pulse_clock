@@ -3,17 +3,17 @@ module pulse_top #(
     parameter integer SENSOR_CHANNELS = 2,
     parameter integer DEBOUNCE_CYCLES = 1000000
 ) (
-    input  logic                       clk,
-    input  logic                       reset,
-    input  logic                       enable,
-    input  logic                       timer_start,
-    input  logic                       timer_cancel,
-    input  logic [TIMER_WIDTH-1:0]     cfg_timer_cycles,
-    input  logic [SENSOR_CHANNELS-1:0] sensor_in,
-    output logic                       timer_busy,
-    output logic                       timer_done,
-    output logic [SENSOR_CHANNELS-1:0] sensor_debounced,
-    output logic [SENSOR_CHANNELS-1:0] sensor_valid
+    input  wire                       clk,
+    input  wire                       reset,
+    input  wire                       enable,
+    input  wire                       timer_start,
+    input  wire                       timer_cancel,
+    input  wire [TIMER_WIDTH-1:0]     cfg_timer_cycles,
+    input  wire [SENSOR_CHANNELS-1:0] sensor_in,
+    output wire                       timer_busy,
+    output wire                       timer_done,
+    output wire [SENSOR_CHANNELS-1:0] sensor_debounced,
+    output wire [SENSOR_CHANNELS-1:0] sensor_valid
 );
 
     pulse_timer #(
@@ -48,12 +48,18 @@ module pulse_top #(
 
     // synthesis translate_off
     initial begin
-        if (TIMER_WIDTH < 1)
-            $fatal(1, "pulse_top: TIMER_WIDTH must be positive");
-        if (SENSOR_CHANNELS < 1)
-            $fatal(1, "pulse_top: SENSOR_CHANNELS must be positive");
-        if (DEBOUNCE_CYCLES < 1)
-            $fatal(1, "pulse_top: DEBOUNCE_CYCLES must be positive");
+        if (TIMER_WIDTH < 1) begin
+            $display("FAIL pulse_top: TIMER_WIDTH must be positive");
+            $stop;
+        end
+        if (SENSOR_CHANNELS < 1) begin
+            $display("FAIL pulse_top: SENSOR_CHANNELS must be positive");
+            $stop;
+        end
+        if (DEBOUNCE_CYCLES < 1) begin
+            $display("FAIL pulse_top: DEBOUNCE_CYCLES must be positive");
+            $stop;
+        end
     end
     // synthesis translate_on
 

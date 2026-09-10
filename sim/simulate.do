@@ -1,6 +1,6 @@
 onerror {quit -f -code 2}
 # ModelSim 10.1d also invokes onbreak for a normal $finish. Resume the
-# macro, then require the explicit success marker; $fatal leaves it zero.
+# macro, then require the explicit success marker; a failing $stop leaves it zero.
 onbreak {resume}
 set pulse_tests [list pulse_timer_tb pulse_debounce_tb pulse_top_tb water_tank_system_tb]
 set pulse_tb pulse_top_tb

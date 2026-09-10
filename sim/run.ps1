@@ -50,6 +50,9 @@ try {
         if ($pulseLog -match '\*\*\s+(Fatal|Error):') {
             throw "Simulator error diagnostic in $pulseTest transcript. See $pulseRun"
         }
+        if ($pulseLog -match '(?m)^\s*(#\s*)?FAIL\b') {
+            throw "Verilog check failure in $pulseTest transcript. See $pulseRun"
+        }
         if ($pulseLog -notmatch ('PULSE_TEST_OK ' + [regex]::Escape($pulseTest))) {
             throw "Missing simulator success marker: $pulseTest"
         }

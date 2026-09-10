@@ -3,12 +3,12 @@ module water_tank_controller #(
     parameter integer TIMER_WIDTH = 32,
     parameter integer DEBOUNCE_CYCLES = 1000000
 ) (
-    input  logic                       clk,
-    input  logic                       reset,
-    input  logic                       enable,
-    input  logic                       fault_clear,
-    input  logic [1:0]                 sensor_in,
-    input  logic [TIMER_WIDTH-1:0]     cfg_protection_cycles,
+    input  wire                        clk,
+    input  wire                        reset,
+    input  wire                        enable,
+    input  wire                        fault_clear,
+    input  wire [1:0]                 sensor_in,
+    input  wire [TIMER_WIDTH-1:0]     cfg_protection_cycles,
     output wire                        pump_enable,
     output wire                        dry_run_detected,
     output wire                        protection_active,
@@ -17,16 +17,14 @@ module water_tank_controller #(
     output wire                        timer_busy,
     output wire                        timer_done
 );
-    typedef enum logic [1:0] {
-        IDLE          = 2'b00,
-        WAIT_RESPONSE = 2'b01,
-        FILLING       = 2'b10,
-        PROTECTED     = 2'b11
-    } controller_state_t;
+    localparam [1:0] IDLE          = 2'b00;
+    localparam [1:0] WAIT_RESPONSE = 2'b01;
+    localparam [1:0] FILLING       = 2'b10;
+    localparam [1:0] PROTECTED     = 2'b11;
 
-    controller_state_t state, next_state;
-    logic timer_start;
-    logic timer_cancel;
+    reg [1:0] state, next_state;
+    reg timer_start;
+    reg timer_cancel;
     wire readings_usable;
 
     assign readings_usable = (&sensor_valid) && (sensor_debounced != 2'b10);
@@ -50,7 +48,7 @@ module water_tank_controller #(
     // Combinational strobes let PULSE accept the start on the same edge
     // that the state register enables the pump. Registered strobes would
     // introduce an extra, undocumented protection-window delay.
-    always_comb begin
+    always @(*) begin
         next_state = state;
         timer_start = 1'b0;
         timer_cancel = 1'b0;
@@ -90,7 +88,7 @@ module water_tank_controller #(
         endcase
     end
 
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         if (reset || !enable)
             state <= IDLE;
         else

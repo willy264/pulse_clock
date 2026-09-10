@@ -17,8 +17,10 @@ module water_tank_model #(
 
     initial begin
         if ((STEP_CYCLES < 1) || (FILL_PER_STEP < 0) ||
-            (DRAIN_PER_STEP < 0) || (INITIAL_LEVEL < 0) || (INITIAL_LEVEL > 100))
-            $fatal(1, "water_tank_model: invalid model parameter");
+            (DRAIN_PER_STEP < 0) || (INITIAL_LEVEL < 0) || (INITIAL_LEVEL > 100)) begin
+            $display("FAIL water_tank_model: invalid model parameter");
+            $stop;
+        end
     end
 
     always @(posedge clk) begin

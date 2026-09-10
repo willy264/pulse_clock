@@ -7,17 +7,17 @@ module water_tank_system_tb;
     localparam integer D = 3;
     localparam integer WINDOW = 64;
 
-    logic clk = 1'b0;
-    logic reset = 1'b1;
-    logic enable = 1'b1;
-    logic fault_clear = 1'b0;
-    logic model_reset = 1'b1;
-    logic source_available = 1'b1;
-    logic drain_enable = 1'b0;
-    logic [1:0] noise_mask = 2'b00;
-    logic direct_sensors = 1'b0;
-    logic [1:0] directed_value = 2'b00;
-    logic [TIMER_WIDTH-1:0] cfg_protection_cycles = WINDOW;
+    reg clk = 1'b0;
+    reg reset = 1'b1;
+    reg enable = 1'b1;
+    reg fault_clear = 1'b0;
+    reg model_reset = 1'b1;
+    reg source_available = 1'b1;
+    reg drain_enable = 1'b0;
+    reg [1:0] noise_mask = 2'b00;
+    reg direct_sensors = 1'b0;
+    reg [1:0] directed_value = 2'b00;
+    reg [TIMER_WIDTH-1:0] cfg_protection_cycles = WINDOW;
     wire [1:0] modeled_sensors;
     wire [1:0] sensor_in;
     wire [1:0] sensor_debounced, sensor_valid;
@@ -50,10 +50,13 @@ module water_tank_system_tb;
     sensor_model sensors (.level(tank_level), .noise_mask(noise_mask),
                           .sensor_out(modeled_sensors));
 
-    task automatic require_true(input logic condition, input string message);
+    // A 256-byte packed vector carries every diagnostic without truncation.
+    task automatic require_true(input condition, input [8*256-1:0] message);
         begin
-            if (condition !== 1'b1)
-                $fatal(1, "water_tank_system_tb cycle %0d: %s", cycle_count, message);
+            if (condition !== 1'b1) begin
+                $display("FAIL water_tank_system_tb cycle %0d: %0s", cycle_count, message);
+                $stop;
+            end
             check_count = check_count + 1;
         end
     endtask
@@ -69,7 +72,7 @@ module water_tank_system_tb;
         integer n;
         begin
             for (n = 0; n < count; n = n + 1)
-                tick();
+                tick;
         end
     endtask
 
@@ -83,15 +86,15 @@ module water_tank_system_tb;
     endtask
 
     // Release at a falling edge, so the next tick is the first capture a0.
-    task automatic reset_controller(input logic reset_tank);
+    task automatic reset_controller(input reset_tank);
         begin
             @(negedge clk);
             reset = 1'b1;
             enable = 1'b1;
             fault_clear = 1'b0;
             model_reset = reset_tank;
-            tick();
-            require_reset_outputs();
+            tick;
+            require_reset_outputs;
             @(negedge clk);
             reset = 1'b0;
             model_reset = 1'b0;
@@ -102,26 +105,26 @@ module water_tank_system_tb;
         integer n;
         begin
             for (n = 0; n < D + 2; n = n + 1) begin
-                tick();
+                tick;
                 require_true(sensor_valid == 2'b00 && !pump_enable,
                              "startup must wait for fresh fully qualified LOW");
             end
-            tick();
+            tick;
             require_true(sensor_valid == 2'b11 && sensor_debounced == 2'b00 &&
                          !pump_enable, "LOW qualifies at a(2+D), before controller observation");
-            tick();
+            tick;
             require_true(pump_enable && timer_busy && !timer_done,
                          "pump and protection window must start on the same edge");
             start_cycle = cycle_count;
         end
     endtask
 
-    task automatic wait_qualified(input logic [1:0] value, input integer budget);
+    task automatic wait_qualified(input [1:0] value, input integer budget);
         integer n;
         begin
             n = 0;
             while (((sensor_valid !== 2'b11) || (sensor_debounced !== value)) && n < budget) begin
-                tick();
+                tick;
                 n = n + 1;
             end
             require_true(sensor_valid == 2'b11 && sensor_debounced == value,
@@ -136,7 +139,7 @@ module water_tank_system_tb;
             n = 0;
             observed_mid = 0;
             while (pump_enable && n < 160) begin
-                tick();
+                tick;
                 require_true(!dry_run_detected && !protection_active,
                              "available source must complete filling without protection");
                 if (sensor_debounced == 2'b01) begin
@@ -155,7 +158,7 @@ module water_tank_system_tb;
     task automatic expect_timeout;
         begin
             while (cycle_count < start_cycle + WINDOW) begin
-                tick();
+                tick;
                 require_true(pump_enable && !dry_run_detected,
                              "timeout must not stop pump before controller observes done");
                 if (cycle_count < start_cycle + WINDOW)
@@ -163,7 +166,7 @@ module water_tank_system_tb;
             end
             require_true(timer_done && !timer_busy && pump_enable,
                          "PULSE must complete exactly N cycles after pump start");
-            tick();
+            tick;
             require_true(cycle_count == start_cycle + WINDOW + 1 && !pump_enable &&
                          dry_run_detected && protection_active && !timer_done,
                          "controller must latch protection exactly at N+1 cycles");
@@ -172,7 +175,7 @@ module water_tank_system_tb;
 
     // The raw transition first captures at e(N-D-2), so qualification and
     // timer completion both register at eN. No force or internal-state write.
-    task automatic response_expiry_race(input logic [1:0] response);
+    task automatic response_expiry_race(input [1:0] response);
         begin
             @(negedge clk);
             direct_sensors = 1'b1;
@@ -180,19 +183,19 @@ module water_tank_system_tb;
             source_available = 1'b0;
             noise_mask = 2'b00;
             reset_controller(1'b1);
-            startup_low();
+            startup_low;
             while (cycle_count < start_cycle + WINDOW - D - 3)
-                tick();
+                tick;
             @(negedge clk);
             directed_value = response;
             while (cycle_count < start_cycle + WINDOW - 1)
-                tick();
+                tick;
             require_true(sensor_debounced == 2'b00 && timer_busy && !timer_done,
                          "race fixture must retain old LOW until expiration edge");
-            tick();
+            tick;
             require_true(sensor_debounced == response && timer_done && pump_enable &&
                          !dry_run_detected, "response and done must register together at eN");
-            tick();
+            tick;
             require_true(!dry_run_detected && !protection_active && !timer_busy && !timer_done,
                          "simultaneously observed response must beat timeout");
             if (response == 2'b11)
@@ -206,9 +209,9 @@ module water_tank_system_tb;
         // A / E-startup: actual model feedback drives LOW -> MID -> FULL.
         $display("CASE A normal model filling; E startup reset");
         reset_controller(1'b1);
-        startup_low();
+        startup_low;
         require_true(pump_running && flow_present, "source-available pump model must produce flow");
-        finish_normal_fill();
+        finish_normal_fill;
 
         // B1: model-generated FULL is inverted to false LOW for two samples.
         $display("CASE B1 short false LOW on a full tank");
@@ -219,7 +222,7 @@ module water_tank_system_tb;
         @(negedge clk);
         noise_mask = 2'b00;
         for (i = 0; i < D + 6; i = i + 1) begin
-            tick();
+            tick;
             require_true(sensor_debounced == 2'b11 && !pump_enable && !dry_run_detected,
                          "short false LOW must neither qualify nor start pump");
         end
@@ -238,7 +241,7 @@ module water_tank_system_tb;
         $display("CASE B2 noise during monitoring; C exact dry-run timeout");
         source_available = 1'b0;
         reset_controller(1'b1);
-        startup_low();
+        startup_low;
         require_true(pump_running && !flow_present, "absent source must suppress model flow");
         clocks(5);
         @(negedge clk);
@@ -247,11 +250,11 @@ module water_tank_system_tb;
         @(negedge clk);
         noise_mask = 2'b00;
         for (i = 0; i < D + 6; i = i + 1) begin
-            tick();
+            tick;
             require_true(sensor_debounced == 2'b00 && pump_enable && timer_busy,
                          "short false response must not qualify, stop, or cancel monitoring");
         end
-        expect_timeout();
+        expect_timeout;
         require_true(tank_level == 0, "source absence must leave tank unfilled");
 
         // D: restored supply alone cannot retry; only explicit clear can.
@@ -259,20 +262,20 @@ module water_tank_system_tb;
         @(negedge clk);
         source_available = 1'b1;
         for (i = 0; i < WINDOW + 5; i = i + 1) begin
-            tick();
+            tick;
             require_true(!pump_enable && dry_run_detected && protection_active && !flow_present,
                          "restored source must not cause automatic retry");
         end
         @(negedge clk);
         fault_clear = 1'b1;
-        tick();
+        tick;
         require_true(!pump_enable && !dry_run_detected && !protection_active,
                      "fault clear must return to IDLE without same-edge restart");
         @(negedge clk);
         fault_clear = 1'b0;
-        tick();
+        tick;
         require_true(pump_enable && timer_busy, "LOW must permit a fresh start after manual clear");
-        finish_normal_fill();
+        finish_normal_fill;
 
         // E: reset active monitoring, then reset an already latched fault.
         $display("CASE E reset during monitoring and protection");
@@ -281,23 +284,23 @@ module water_tank_system_tb;
         directed_value = 2'b00;
         source_available = 1'b0;
         reset_controller(1'b1);
-        startup_low();
+        startup_low;
         clocks(8);
         reset_controller(1'b0);
-        startup_low();
-        expect_timeout();
+        startup_low;
+        expect_timeout;
         reset_controller(1'b0);
-        startup_low();
+        startup_low;
         require_true(!dry_run_detected, "reset must release the protection latch");
         @(negedge clk);
         directed_value = 2'b01;
         wait_qualified(2'b01, D + 8);
-        tick();
+        tick;
         require_true(pump_enable && !timer_busy,
                      "active-fill reset fixture must have accepted its MID response");
         reset_controller(1'b0);
         wait_qualified(2'b01, D + 8);
-        tick();
+        tick;
         require_true(!pump_enable && !dry_run_detected,
                      "reset during FILLING must return to IDLE and not restart at MID");
 
@@ -312,7 +315,7 @@ module water_tank_system_tb;
         @(negedge clk);
         directed_value = 2'b10;
         wait_qualified(2'b10, D + 8);
-        tick();
+        tick;
         require_true(!pump_enable && !dry_run_detected,
                      "contradictory readings in FILLING must stop without dry-run latch");
         reset_controller(1'b0);
@@ -325,12 +328,12 @@ module water_tank_system_tb;
         @(negedge clk);
         directed_value = 2'b00;
         wait_qualified(2'b00, D + 8);
-        tick();
+        tick;
         require_true(pump_enable && timer_busy, "valid LOW must start after invalid-code inhibition");
         @(negedge clk);
         directed_value = 2'b10;
         wait_qualified(2'b10, D + 8);
-        tick();
+        tick;
         require_true(!pump_enable && !timer_busy && !dry_run_detected,
                      "contradictory readings during monitoring must cancel and stop");
 
@@ -338,22 +341,22 @@ module water_tank_system_tb;
         @(negedge clk);
         directed_value = 2'b00;
         wait_qualified(2'b00, D + 8);
-        tick();
+        tick;
         require_true(pump_enable && timer_busy, "disable fixture must have active monitoring");
         @(negedge clk);
         enable = 1'b0;
-        tick();
-        require_reset_outputs();
+        tick;
+        require_reset_outputs;
         clocks(2);
-        require_reset_outputs();
+        require_reset_outputs;
         @(negedge clk);
         enable = 1'b1;
-        startup_low();
-        expect_timeout();
+        startup_low;
+        expect_timeout;
         @(negedge clk);
         enable = 1'b0;
-        tick();
-        require_reset_outputs();
+        tick;
+        require_reset_outputs;
 
         test_passed = 1;
         $display("PASS water_tank_system_tb (%0d checks, %0d cycles; cases A-G)",
@@ -363,6 +366,7 @@ module water_tank_system_tb;
 
     initial begin
         #1000000;
-        $fatal(1, "water_tank_system_tb watchdog expired");
+        $display("FAIL water_tank_system_tb watchdog expired");
+        $stop;
     end
 endmodule

@@ -2,14 +2,14 @@
 module pulse_debounce_tb;
     localparam integer D = 4;
     localparam integer DEFAULT_D = 1_000_000;
-    logic clk = 1'b0;
+    reg clk = 1'b0;
     always #10 clk = ~clk;
 
-    logic reset = 1'b1, enable = 1'b0, sensor_in = 1'b0;
+    reg reset = 1'b1, enable = 1'b0, sensor_in = 1'b0;
     wire sensor_debounced, sensor_valid;
-    logic min_reset = 1'b1, min_enable = 1'b0, min_input = 1'b0;
+    reg min_reset = 1'b1, min_enable = 1'b0, min_input = 1'b0;
     wire min_output, min_valid;
-    logic default_reset = 1'b1, default_enable = 1'b0, default_input = 1'b0;
+    reg default_reset = 1'b1, default_enable = 1'b0, default_input = 1'b0;
     wire default_output, default_valid;
     wire maximum_output, maximum_valid;
     integer test_passed = 0;
@@ -35,15 +35,18 @@ module pulse_debounce_tb;
         .sensor_debounced(maximum_output), .sensor_valid(maximum_valid)
     );
 
-    task automatic check(input logic condition, input string message_text);
+    // A 256-byte packed vector carries every diagnostic without truncation.
+    task automatic check(input condition, input [8*256-1:0] message_text);
         begin
             checks = checks + 1;
-            if (condition !== 1'b1)
-                $fatal(1, "pulse_debounce_tb cycle %0d: %s", cycle_number, message_text);
+            if (condition !== 1'b1) begin
+                $display("FAIL pulse_debounce_tb cycle %0d: %0s", cycle_number, message_text);
+                $stop;
+            end
         end
     endtask
 
-    task automatic step(input logic r, input logic en, input logic value);
+    task automatic step(input r, input en, input value);
         begin
             @(negedge clk);
             reset = r; enable = en; sensor_in = value;
@@ -52,7 +55,7 @@ module pulse_debounce_tb;
         end
     endtask
 
-    task automatic min_step(input logic r, input logic en, input logic value);
+    task automatic min_step(input r, input en, input value);
         begin
             @(negedge clk);
             min_reset = r; min_enable = en; min_input = value;
@@ -61,7 +64,7 @@ module pulse_debounce_tb;
         end
     endtask
 
-    task automatic default_step(input logic r, input logic en, input logic value);
+    task automatic default_step(input r, input en, input value);
         begin
             @(negedge clk);
             default_reset = r; default_enable = en; default_input = value;
@@ -71,7 +74,7 @@ module pulse_debounce_tb;
     endtask
 
     // Each deadline is relative to the first raw capture, not a copied FSM.
-    task automatic startup(input logic value);
+    task automatic startup(input value);
         integer elapsed;
         begin
             step(1, 1, value);
@@ -88,7 +91,7 @@ module pulse_debounce_tb;
         end
     endtask
 
-    task automatic stable_change(input logic old_value, input logic new_value);
+    task automatic stable_change(input old_value, input new_value);
         integer elapsed;
         begin
             for (elapsed = 0; elapsed <= D + 2; elapsed = elapsed + 1) begin
@@ -103,10 +106,13 @@ module pulse_debounce_tb;
     endtask
 
     initial begin
-        check($bits(dut.remaining) == 3, "D00 power-of-two D=4 inclusive count needs 3 bits");
-        check($bits(min_dut.remaining) == 1, "D00 minimum D=1 count needs 1 bit");
-        check($bits(default_dut.remaining) == 20, "D00 default D needs 20 bits");
-        check($bits(maximum_dut.remaining) == 31, "D00 INT_MAX width arithmetic does not overflow");
+        // Concatenation preserves the actual register width. Shift that width
+        // away: the leading sentinel must be exactly bit 0, even while the
+        // register itself is unknown. A shorter or longer vector fails.
+        check(({1'b1, dut.remaining} >> 3) === 32'd1, "D00 power-of-two D=4 inclusive count needs 3 bits");
+        check(({1'b1, min_dut.remaining} >> 1) === 32'd1, "D00 minimum D=1 count needs 1 bit");
+        check(({1'b1, default_dut.remaining} >> 20) === 32'd1, "D00 default D needs 20 bits");
+        check(({1'b1, maximum_dut.remaining} >> 31) === 32'd1, "D00 INT_MAX width arithmetic does not overflow");
 
         startup(0);
         stable_change(0, 1);
@@ -225,6 +231,7 @@ module pulse_debounce_tb;
 
     initial begin
         #30_000_000;
-        $fatal(1, "pulse_debounce_tb watchdog timeout");
+        $display("FAIL pulse_debounce_tb watchdog timeout");
+        $stop;
     end
 endmodule

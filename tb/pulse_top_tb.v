@@ -6,17 +6,17 @@ module pulse_top_tb;
     localparam integer DEBOUNCE_CYCLES = 3;
     localparam integer SENSOR_DELAY = DEBOUNCE_CYCLES + 2;
 
-    logic clk = 1'b0;
-    logic reset = 1'b1;
-    logic enable = 1'b0;
-    logic timer_start = 1'b0;
-    logic timer_cancel = 1'b0;
-    logic [TIMER_WIDTH-1:0] cfg_timer_cycles = '0;
-    logic [SENSOR_CHANNELS-1:0] sensor_in = '0;
-    logic timer_busy;
-    logic timer_done;
-    logic [SENSOR_CHANNELS-1:0] sensor_debounced;
-    logic [SENSOR_CHANNELS-1:0] sensor_valid;
+    reg clk = 1'b0;
+    reg reset = 1'b1;
+    reg enable = 1'b0;
+    reg timer_start = 1'b0;
+    reg timer_cancel = 1'b0;
+    reg [TIMER_WIDTH-1:0] cfg_timer_cycles = {TIMER_WIDTH{1'b0}};
+    reg [SENSOR_CHANNELS-1:0] sensor_in = {SENSOR_CHANNELS{1'b0}};
+    wire timer_busy;
+    wire timer_done;
+    wire [SENSOR_CHANNELS-1:0] sensor_debounced;
+    wire [SENSOR_CHANNELS-1:0] sensor_valid;
 
     integer edge_count = 0;
     integer test_passed = 0;
@@ -46,44 +46,50 @@ module pulse_top_tb;
     always #10 clk = ~clk;
     always @(posedge clk) edge_count = edge_count + 1;
 
-    task automatic check(input logic condition, input string message);
-        if (condition !== 1'b1)
-            $fatal(1, "pulse_top_tb edge %0d: %s", edge_count, message);
+    // A 256-byte packed vector carries every diagnostic without truncation.
+    task automatic check(input condition, input [8*256-1:0] message);
+        if (condition !== 1'b1) begin
+            $display("FAIL pulse_top_tb edge %0d: %0s", edge_count, message);
+            $stop;
+        end
     endtask
 
     task automatic expect_outputs(
-        input logic expected_busy,
-        input logic expected_done,
-        input logic [SENSOR_CHANNELS-1:0] expected_sensor,
-        input logic [SENSOR_CHANNELS-1:0] expected_valid,
-        input string scenario
+        input expected_busy,
+        input expected_done,
+        input [SENSOR_CHANNELS-1:0] expected_sensor,
+        input [SENSOR_CHANNELS-1:0] expected_valid,
+        input [8*256-1:0] scenario
     );
         if ({timer_busy, timer_done, sensor_debounced, sensor_valid} !==
-            {expected_busy, expected_done, expected_sensor, expected_valid})
-            $fatal(1,
-                "pulse_top_tb edge %0d (%s): busy/done/sensor/valid %b/%b/%b/%b, expected %b/%b/%b/%b",
+            {expected_busy, expected_done, expected_sensor, expected_valid}) begin
+            $display("FAIL pulse_top_tb edge %0d (%0s): busy/done/sensor/valid %b/%b/%b/%b, expected %b/%b/%b/%b",
                 edge_count, scenario, timer_busy, timer_done, sensor_debounced,
                 sensor_valid, expected_busy, expected_done, expected_sensor, expected_valid);
+            $stop;
+        end
     endtask
 
     // Drive off the sampling edge, then observe only after registered updates.
     task automatic drive_edge(
-        input logic next_reset,
-        input logic next_enable,
-        input logic next_start,
-        input logic next_cancel,
-        input logic [TIMER_WIDTH-1:0] next_cycles,
-        input logic [SENSOR_CHANNELS-1:0] next_sensor
+        input next_reset,
+        input next_enable,
+        input next_start,
+        input next_cancel,
+        input [TIMER_WIDTH-1:0] next_cycles,
+        input [SENSOR_CHANNELS-1:0] next_sensor
     );
-        @(negedge clk);
-        reset = next_reset;
-        enable = next_enable;
-        timer_start = next_start;
-        timer_cancel = next_cancel;
-        cfg_timer_cycles = next_cycles;
-        sensor_in = next_sensor;
-        @(posedge clk);
-        #1;
+        begin
+            @(negedge clk);
+            reset = next_reset;
+            enable = next_enable;
+            timer_start = next_start;
+            timer_cancel = next_cancel;
+            cfg_timer_cycles = next_cycles;
+            sensor_in = next_sensor;
+            @(posedge clk);
+            #1;
+        end
     endtask
 
     initial begin
@@ -204,6 +210,7 @@ module pulse_top_tb;
 
     initial begin
         #100000;
-        $fatal(1, "pulse_top_tb watchdog expired");
+        $display("FAIL pulse_top_tb watchdog expired");
+        $stop;
     end
 endmodule

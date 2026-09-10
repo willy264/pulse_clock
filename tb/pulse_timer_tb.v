@@ -1,16 +1,16 @@
 `timescale 1ns/1ps
 module pulse_timer_tb;
-    logic clk = 1'b0;
+    reg clk = 1'b0;
     always #10 clk = ~clk; // 50 MHz fixture; counts remain cycle based.
 
-    logic reset = 1'b1, enable = 1'b0;
-    logic timer_start = 1'b0, timer_cancel = 1'b0;
-    logic [7:0] cfg_timer_cycles = 8'd0;
+    reg reset = 1'b1, enable = 1'b0;
+    reg timer_start = 1'b0, timer_cancel = 1'b0;
+    reg [7:0] cfg_timer_cycles = 8'd0;
     wire timer_busy, timer_done;
     wire tiny_busy, tiny_done;
-    logic wide_reset = 1'b1, wide_enable = 1'b0;
-    logic wide_start = 1'b0, wide_cancel = 1'b0;
-    logic [31:0] wide_cfg = 32'd0;
+    reg wide_reset = 1'b1, wide_enable = 1'b0;
+    reg wide_start = 1'b0, wide_cancel = 1'b0;
+    reg [31:0] wide_cfg = 32'd0;
     wire wide_busy, wide_done;
     integer test_passed = 0;
     integer checks = 0;
@@ -36,17 +36,20 @@ module pulse_timer_tb;
         .timer_busy(wide_busy), .timer_done(wide_done)
     );
 
-    task automatic check(input logic condition, input string message_text);
+    // A 256-byte packed vector carries every diagnostic without truncation.
+    task automatic check(input condition, input [8*256-1:0] message_text);
         begin
             checks = checks + 1;
-            if (condition !== 1'b1)
-                $fatal(1, "pulse_timer_tb cycle %0d: %s", cycle_number, message_text);
+            if (condition !== 1'b1) begin
+                $display("FAIL pulse_timer_tb cycle %0d: %0s", cycle_number, message_text);
+                $stop;
+            end
         end
     endtask
 
     task automatic step(
-        input logic r, input logic en, input logic st, input logic ca,
-        input logic [7:0] cfg
+        input r, input en, input st, input ca,
+        input [7:0] cfg
     );
         begin
             @(negedge clk);
@@ -58,8 +61,8 @@ module pulse_timer_tb;
     endtask
 
     task automatic wide_step(
-        input logic r, input logic en, input logic st, input logic ca,
-        input logic [31:0] cfg
+        input r, input en, input st, input ca,
+        input [31:0] cfg
     );
         begin
             @(negedge clk);
@@ -193,6 +196,7 @@ module pulse_timer_tb;
 
     initial begin
         #2_000_000;
-        $fatal(1, "pulse_timer_tb watchdog timeout");
+        $display("FAIL pulse_timer_tb watchdog timeout");
+        $stop;
     end
 endmodule
