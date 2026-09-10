@@ -1,0 +1,8 @@
+/build/
+/work/
+/transcript
+*.wlf
+*.vcd
+*.bak
+*.rpt.bak
+/modelsim.ini
