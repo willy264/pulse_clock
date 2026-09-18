@@ -84,6 +84,7 @@ Tested tools: ModelSim-Altera Starter 10.1d and Quartus II 13.0.1 SP1 on Windows
 
 ## Engineering documents
 
+- [Oscillator completion: assignments for five team members](docs/PULSE_OSCILLATOR_TEAM_TASKS.md).
 - [Inventory](docs/project_inventory.md), [requirements](docs/PULSE_REQUIREMENTS.md), [timing](docs/PULSE_TIMING_SPEC.md), [interface](docs/PULSE_INTERFACE.md).
 - [Architecture](docs/PULSE_ARCHITECTURE.md), [state machines](docs/PULSE_STATE_MACHINES.md), [application behavior](docs/WATER_TANK_BEHAVIOR.md), [integration contract](docs/INTEGRATION_CONTRACT.md).
 - [Verification plan](docs/PULSE_VERIFICATION_PLAN.md), [traceability](docs/TRACEABILITY_MATRIX.md), [waveform observations](docs/WAVEFORM_OBSERVATIONS.md), [synthesis check](docs/SYNTHESIS_CHECK.md).
