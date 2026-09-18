@@ -1,186 +1,172 @@
-# PULSE oscillator completion: assignments for five team members
+# PULSE oscillator completion: parallel assignments for five people
 
-Prepared: 2026-09-18. Status: **Task plan; oscillator implementation and new verification are not yet complete.**
+Prepared: 2026-09-18. Revised to remove avoidable waiting between teammates.
+
+Status: **Planning only. Pulse versus square-wave output remains undecided; no new implementation or verification is claimed.**
 
 Implementation language: Verilog HDL (Verilog-2001).
 
-This plan divides the oscillator extension between four teammates and the team lead. Replace Member 1–4 with names when assigning work. The existing timer, debounce, and PULSE integration form the verified starting point; preserve their behavior and credit the work already completed.
+The work is divided into individually deliverable packages and a final shared integration checkpoint. A member's individual handoff must not require another member's unfinished package. Actual verification of the finished oscillator and its integration necessarily use the real implementation; these are separate team completion gates, not evidence that one member must wait idle throughout their assignment.
 
-The RTL for a periodic generator is relatively small. A complete contribution also needs an agreed specification, independent tests, integration, measured evidence, synthesis review, and a demonstration. Those responsibilities support five meaningful assignments without inventing extra features or splitting one counter between five programmers. Workloads will not be identical; review and verification are technical work too.
+The existing verified timer, debounce, and PULSE top are available to everyone now. Preserve their behavior and credit their existing implementation and verification. The lead reviews and coordinates; owners fix problems in their own contributions.
+
+## One decision before assigning implementation
+
+Choose the output type and distribute the same written interface/timing contract to everyone before starting the implementation deadline. This is a short shared kickoff decision, not a specification task assigned to Member 1 that blocks the other members.
+
+The current [interface proposal](PULSE_INTERFACE.md) and [timing proposal](PULSE_TIMING_SPEC.md) already define a candidate periodic tick. A square wave needs different timing and duty-cycle semantics. The proposal is a starting option, not evidence of supervisor approval or a final choice.
+
+| Contract item | Existing periodic-tick proposal | Square-wave alternative to settle if selected |
+| --- | --- | --- |
+| Output | `periodic_tick`: registered event/clock enable | Registered HIGH/LOW output; agree its port name |
+| Configuration meaning | P full input-clock cycles between events | Prefer an explicit H input-clock cycles per half-period; agree units |
+| Frequency | Event rate = input clock frequency / P | Output frequency = input clock frequency / (2 x H) |
+| Startup | Capture at p0; first tick after pP; then p2P, p3P | Agree initial level and first toggle edge |
+| Reset/enable | Active-high synchronous reset; global/local disable clears output and phase | Agree reset level and disable/restart behavior |
+| Configuration update | Capture at start; changes apply after disable/re-enable | Agree capture/update boundary |
+| Minimum setting | Zero maps to P = 1; P = 1 means HIGH every event cycle, without LOW gaps | Agree zero handling; H = 1 toggles every clock |
+| Width/range | Agree positive counter width; current PULSE timer width defaults to 32 | Agree positive counter width and supported range |
+| Module/files | Candidate `pulse_periodic`, matching `.v` module and bench names | Candidate `pulse_oscillator`, matching `.v` module and bench names |
+
+At kickoff, record the selected column, all final port names/directions/widths, enable/reset priority at expiry, startup edge, configuration capture, minimum behavior, clock assumption, and intended use. For example, the existing illustrative input is 50 MHz; it is not a confirmed physical clock specification.
+
+Use the system clock for internal sequential logic. A periodic output is data or a clock enable, not a new internal clock. Specify the one-edge observation delay when another clocked process consumes a newly registered tick. A square-wave contract using an odd full-period count needs explicit HIGH/LOW rounding rules if exact 50% duty cannot be represented.
+
+Issue the agreed packet as a named specification revision, for example `OSC-CONTRACT-1`, on every task. Proposed amendments are reviewed together; no member silently changes the shared interface. If the assignment meaning is still unclear, resolve it with the supervisor before describing either choice as the required oscillator function.
+
+Until this kickoff decision is made, everyone can inspect the baseline, set up tools, and prepare contract-independent material. Do not claim output-specific RTL is ready to assign while its requirement remains undecided.
 
 ## Assignment overview
 
-| ID | Owner | Assignment | Concrete handoff | Reviewer |
+The only shared starting inputs are the repository baseline, installed tools, and the kickoff contract. None of the individual handoffs below requires a newly completed file from another teammate.
+
+| ID | Owner | Work package | Independent handoff | Later shared checkpoint |
 | --- | --- | --- | --- | --- |
-| OSC-01 | Member 1 | Define oscillator behavior and prepare the explanation/demo | Agreed timing/interface contract, requirements mapping, demo instructions | You and Member 3 |
-| OSC-02 | Member 2 | Implement the standalone oscillator/periodic generator | Verilog module, architecture notes, compile evidence | Member 3; Member 4 checks ports |
-| OSC-03 | Member 3 | Independently verify the new module | Self-checking testbench, case matrix, measured waveform evidence | Member 1 checks against specification; you review conclusions |
-| OSC-04 | Member 4 | Integrate with PULSE and validate the tool flow | Updated top/connections/configuration, concurrency tests, clean simulation and synthesis results | Member 2 reviews wiring; you review release evidence |
-| OSC-05 | You, team lead | Coordinate scope, review contributions, and prepare the release | Accepted contract, reviewed PRs, completion checklist and final demonstration approval | All members review the completed checklist |
+| OSC-01 | Member 1 | Requirements audit, timing calculations, and explanation | Reviewed contract analysis, worked edge/frequency tables, demo instructions | Replace planned examples with actual results and finalize traceability/report |
+| OSC-02 | Member 2 | Standalone oscillator RTL and developer checks | New Verilog module, small smoke bench, own compile/run results, architecture notes | Resolve defects exposed by independent tests and synthesis |
+| OSC-03 | Member 3 | Independent tests and checker validation | New unit testbench/checker, case matrix, checker self-test results | Run against Member 2's real module and export measured waveforms |
+| OSC-04 | Member 4 | Baseline reproducibility, integration preparation, and tools | Actual baseline reproduction, wiring/source-list change plan, prepared integration patch | Integrate real module/tests; run concurrency, full regression, and synthesis |
+| OSC-05 | You, team lead | Scope, coordination, and review | Published contract, assigned tasks/deadlines, review checklist and progress board | Review integrated evidence and approve release/demo |
 
-Each owner investigates and fixes problems in their own deliverable. The lead coordinates disagreements and reviews evidence; unfinished implementation does not automatically transfer to the lead.
+Individual handoff and whole-project completion are different statuses. Completing a testbench before the DUT arrives does not mean the oscillator has passed; reproducing the existing synthesis does not prove the new feature synthesizes.
 
-## Start together: agree what “oscillator” means
+## OSC-01 - Member 1: contract audit and presentation package
 
-The existing [interface proposal](PULSE_INTERFACE.md) and [timing proposal](PULSE_TIMING_SPEC.md) describe periodic clock-enable pulses. A square wave requires a different output contract. Neither implementation is selected by this task plan.
+**Starts with:** The common repository and kickoff contract, not another member's code or results.
 
-| Choice | Required behavior | Frequency relationship |
-| --- | --- | --- |
-| Periodic tick | One event every P input-clock cycles; normally one cycle HIGH | Event rate = input clock frequency / P |
-| Square wave | Toggle output every H input-clock cycles, producing H HIGH and H LOW cycles | Output frequency = input clock frequency / (2 × H) |
+- [ ] Check the selected contract against the original assignment and current PULSE requirements. Record unresolved external questions separately.
+- [ ] Calculate frequencies/periods for the agreed examples, including small boundary settings.
+- [ ] Write expected edge tables for startup, at least three repetitions, reset/disable, and configuration changes.
+- [ ] Explain how the feature complements the existing timer and how its output is used. Do not invent an application consumer.
+- [ ] Write `docs/OSCILLATOR_DEMO.md` with the procedure and the specific signals/measurements the team will show.
+- [ ] Prepare requirements/interface/timing/traceability updates from the shared contract. Mark expected results as expected, and leave measured results pending.
 
-Both use the external system clock. This work is a synchronous digital generator; a physical free-running oscillator is outside the software/RTL scope. Keep PULSE's internal sequential logic on the system clock. A periodic output is consumed as an enable or observed as data, not silently used as a new internal clock.
+**Individual done when:** The calculations and edge tables are internally consistent, match the issued contract, and the explanation/demo procedure is ready for review. No new RTL, simulator transcript, or teammate-authored document is needed to submit this package.
 
-Before implementation, Member 1 records agreement on:
+**Primary ownership:** Requirements/interface/timing documentation, relevant integration-contract text, traceability/final-report updates, and the demo guide. Member 1 audits and explains the kickoff contract; they are not its prerequisite author for everybody else.
 
-- Pulse or square wave, its assignment requirement, and its intended use/consumer. If there is no application consumer, state that honestly and confirm the standalone educational requirement with the supervisor.
-- Input-clock assumption, requested output range, configuration units, width, and valid limits. Distinguish full period P from half-period H.
-- Reset polarity/style and reset output level; retain compatibility with PULSE's active-high synchronous reset.
-- Global and local enable behavior, first-output edge, and restart phase after disable.
-- Zero/minimum configuration behavior and priority when reset/disable coincides with expiry.
-- When configuration is captured and when a new value may take effect.
-- Pulse width or square-wave duty cycle, including any limits or rounding rules.
-- Module name and every port name, width, direction, and timing obligation.
+**At the shared checkpoint:** Add the actual results from OSC-03/04, keep external agreements provisional unless obtained, and demonstrate the feature using real waveforms.
 
-If the existing tick proposal is adopted, capture P = max(1, configuration) at start, emit at P, 2P, 3P subsequent cycles, and hold the captured period until disable/re-enable. P = 1 produces a HIGH level on every active event cycle without a LOW gap. A separate clocked consumer observes a newly registered output on the following edge; document that latency in any usage example.
+## OSC-02 - Member 2: standalone RTL with its own smoke test
 
-For a square wave, explicitly define H and the initial phase. H = 1 toggles every input cycle. A configurable odd full-period count cannot have equal integer HIGH and LOW durations, so do not promise exact 50% duty for such a contract without defining how it is handled.
+**Starts with:** The frozen module interface/timing contract and existing tool instructions.
 
-The team can read code, reproduce the baseline, and prepare test cases immediately. RTL implementation and expected-output calculations depend on the agreed contract. Record external agreement only when it has actually been obtained.
+- [ ] Implement the selected new `.v` module with independent counter/reload state and the required pulse/toggle behavior.
+- [ ] Implement capture, repeated operation, reset/enable priority, minimum values, and restart phase exactly as specified.
+- [ ] Preserve the captured configuration across reloads where required; do not accidentally resample live configuration every period.
+- [ ] Use Verilog-2001, explicit widths, and one sequential owner per register. Leave existing timer/debounce RTL unchanged unless a separately reviewed issue requires it.
+- [ ] Write a small developer smoke bench for startup, repeated output, reset, and enable. This belongs to Member 2; waiting for Member 3's independent suite is unnecessary.
+- [ ] Compile and run the module/smoke bench in a fresh local work library with ModelSim `-vlog01compat`. Record exact commands, revision, and actual outcomes.
+- [ ] Update architecture/state notes and explain each register and boundary decision.
 
-## OSC-01 — Member 1: specification, documentation, and demonstration
+**Individual done when:** The standalone module compiles and passes its own documented smoke checks, and its source/notes can be handed over. Independent verification and integration are explicitly still pending.
 
-**Objective:** Make the required behavior precise enough that another person can implement and test it independently.
+**Primary ownership:** New `src` module, a separate developer smoke fixture (distinct filename/module from OSC-03's bench), and architecture/state notes. Temporary smoke artifacts must be outside production source lists; commit any fixture needed to reproduce claimed evidence.
 
-Tasks:
+**At the shared checkpoint:** Fix module defects found by OSC-03 or OSC-04. Member 2 retains responsibility for those fixes rather than passing them to the lead.
 
-- [ ] Read the current requirements, interface, timing, architecture, and integration contract.
-- [ ] Resolve the output choice and record all decisions in the checklist above, including their source.
-- [ ] Update F-11 and the periodic portions of the interface/timing documents to reflect the adopted scope. Keep unrelated team interfaces provisional until actually agreed.
-- [ ] Supply worked timing examples for a small configuration and a useful illustrative frequency.
-- [ ] Explain startup, normal operation, configuration changes, and reset/disable with edge tables.
-- [ ] Update traceability and final-report descriptions using results supplied by Members 3 and 4; identify planned versus executed checks.
-- [ ] Write `docs/OSCILLATOR_DEMO.md` with the commands and waveforms needed to explain and demonstrate the feature.
+## OSC-03 - Member 3: independent unit tests and checker self-test
 
-**Primary files:** `docs/PULSE_REQUIREMENTS.md`, `docs/PULSE_INTERFACE.md`, `docs/PULSE_TIMING_SPEC.md`, relevant portions of `docs/INTEGRATION_CONTRACT.md`, `docs/TRACEABILITY_MATRIX.md`, `docs/FINAL_REPORT.md`, and the new demo guide.
+**Starts with:** The same interface/timing contract, not Member 2's internal counter design.
 
-**Done when:** The lead and verifier accept an unambiguous contract; another teammate can follow the demo instructions; every reported result names actual evidence. Member 1 can explain frequency calculation, startup, and reset behavior without reading a script.
+- [ ] Create the independent unit bench using the agreed DUT module and port names.
+- [ ] Calculate expected edges from the public contract rather than copying the DUT algorithm.
+- [ ] Cover first output, at least three repeated periods, zero/minimum behavior, odd/even representative settings, and all settings at a practical reduced width.
+- [ ] Check pulse width or HIGH/LOW durations, configuration changes during counting/across reloads, reset/global/local disable at expiry, and restart behavior.
+- [ ] Add bounded large-count public-output checks for no premature event and correct abort. Claim exact internal capture/decrement only if suitable observability is agreed and tested at the shared checkpoint; do not claim unrun full maximum durations.
+- [ ] Include explicit failure reporting, success status, and bounded timeout behavior compatible with the existing runner.
+- [ ] Validate the checker before the DUT is available by feeding a small set of predetermined correct and deliberately incorrect transition schedules: early/late output, wrong width, or output after reset. Use a testbench-only checker self-test entry point that does not instantiate the missing DUT.
+- [ ] Record which good schedules were accepted and which bad schedules were rejected. Prepare the waveform-export procedure and case-to-requirement matrix.
 
-**Dependency:** Starts immediately. Final result/documentation updates follow OSC-03 and OSC-04.
+**Individual done when:** The independent bench/case matrix is ready and the checker self-test demonstrably accepts/rejects the intended schedules. This status is **checker validated; production DUT execution pending**, never oscillator PASS.
 
-## OSC-02 — Member 2: standalone Verilog implementation
+**Primary ownership:** New independent `tb` bench, a minimal testbench-only checker fixture, verification plan, waveform observations, and later evidence exports. Keep a separate compile/run entry point for the checker self-test. Predetermined schedules need only exercise the checker; do not write a second complete oscillator to fill time.
 
-**Objective:** Implement the agreed recurring output with clear counter ownership and predictable timing.
+**At the shared checkpoint:** Connect the actual module, run every required case, verify that deliberate failures are rejected by the real runner, and save measured oscillator waveforms. Real-module results supersede any fixture-only readiness evidence.
 
-Tasks:
+## OSC-04 - Member 4: tool validation and integration preparation
 
-- [ ] Implement one new module, provisionally `src/pulse_periodic.v` for ticks or `src/pulse_oscillator.v` for a square wave; freeze the name with OSC-01.
-- [ ] Use a counter and reload/toggle logic appropriate to the selected contract.
-- [ ] Preserve captured configuration across reloads when the contract requires it; do not accidentally resample the live configuration at every period.
-- [ ] Implement documented reset, enable, restart, minimum-value, and priority rules.
-- [ ] Use explicit widths, Verilog-2001 syntax, and one sequential owner per register. Keep diagnostic behavior compatible with the existing tools.
-- [ ] Compile the module with ModelSim's `-vlog01compat` setting and resolve syntax/width issues.
-- [ ] Update architecture/state descriptions and give Member 3 the module for independent verification.
-- [ ] Investigate and fix RTL defects reported by verification or synthesis; explain each behavioral fix.
+**Starts with:** The existing working repository and the kickoff port/file contract. The current baseline is already available for actual tool runs.
 
-**Primary files:** The new `src` module, `docs/PULSE_ARCHITECTURE.md`, and applicable sections of `docs/PULSE_STATE_MACHINES.md`.
+- [ ] Reproduce all existing testbenches and both Quartus synthesis checks from a clean checkout on the available validation machine.
+- [ ] Record actual tool versions, source revision, commands, run paths, errors/warnings, and resource reports. Resolve setup or portability issues in this baseline.
+- [ ] Confirm portable TerosHDL paths and source classification and verify the documented setup procedure.
+- [ ] Prepare the precise `pulse_top` port/instance wiring and identify every existing instantiation that needs updating. Explicitly disable an unused extension in the current application; new water-tank behavior is outside this assignment.
+- [ ] Prepare source-list/runner changes for the agreed filenames in ModelSim, Quartus, and TerosHDL. Keep proposed changes on the integration branch; do not merge compile lists referring to absent files into a working baseline.
+- [ ] Prepare concurrency scenarios: periodic output while timer starts/cancels and sensors change/chatter; periodic local enable changes while timer/debounce continue.
+- [ ] Prepare the clean-build, synthesis, and clean-clone checklist and report format for the integrated design.
 
-**Done when:** The code matches the accepted contract, independent unit tests pass, and the module passes the integrated synthesis review. Member 2 can explain each register, reload condition, and boundary case.
+**Individual done when:** Actual baseline reproduction is documented and the integration patch/scenarios/configuration changes are ready for review against the agreed ports. This does not require the new module or Member 3's tests to be finished. Mark unavailable integrated runs as pending.
 
-**Dependency:** Contract and ports from OSC-01. Work proceeds alongside OSC-03 after agreement.
+**Primary ownership:** PULSE top and affected instantiation connections, top-level integration tests, ModelSim/Quartus/TerosHDL configuration, simulation guide, and synthesis report. Preserve the baseline on a clean checkout while preparing dependent edits on the integration branch. A proposed patch is not a completed integration.
 
-## OSC-03 — Member 3: independent verification and waveforms
+**At the shared checkpoint:** Substitute the real implementation and independent tests, then run concurrency checks, the full regression, and synthesis for both tops. Ensure the new function remains observable/synthesized at `pulse_top` even if the application disables it. Reproduce the final result from a fresh checkout and account for warnings. Member 4 fixes integration/configuration defects; Member 2 fixes module defects.
 
-**Objective:** Demonstrate correct behavior from the public contract, including faults that a basic “output toggles” test would miss.
+## OSC-05 - You: kickoff, accountability, and review
 
-Tasks:
+**Starts with:** The existing project and these assignments.
 
-- [ ] Build a dedicated Verilog testbench for the new module, named consistently with OSC-02.
-- [ ] Calculate expected event/transition edges from the specification, independently of the DUT's counter implementation.
-- [ ] Check the first output and at least three consecutive periods for representative settings.
-- [ ] Cover zero according to the contract, minimum values, odd/even settings, and all settings at a practical reduced width.
-- [ ] Check pulse width or separate HIGH/LOW durations. Include P = 1 continuous enable for ticks, or H = 1 alternating output for a square wave.
-- [ ] Change configuration during counting and across reloads; prove changes apply only at the agreed boundary.
-- [ ] Exercise reset, global disable, and local disable during operation and exactly at expiry; verify complete restart timing.
-- [ ] Check large configuration capture, decrement, and abort efficiently. Label any full maximum-duration test that was not run.
-- [ ] Use explicit pass/fail checks, `test_passed`, and a watchdog consistent with existing Verilog benches. An intentionally failing check must be rejected by the runner.
-- [ ] Save representative measured waveform exports and explain the exact edges that establish period, startup, and reset/disable behavior.
-- [ ] Update the verification plan and waveform observations; report any coverage limit honestly.
+- [ ] Settle the output choice, publish the common contract revision, and record any still-provisional external assumptions.
+- [ ] Assign names and deadlines separately for individual handoffs and the final integration checkpoint.
+- [ ] Give each member ownership of their branch and files; establish reviewers without making draft submission depend on reviewer availability.
+- [ ] Use a task board with: Not started, In progress, Individual handoff ready, Under review, Integrated, and Verified.
+- [ ] Review evidence and return fixes to the responsible owner; do not become the automatic implementer for late work.
+- [ ] Prepare the final release checklist and demonstration responsibilities before integration arrives.
 
-**Primary files:** The new `tb` bench, `docs/PULSE_VERIFICATION_PLAN.md`, `docs/WAVEFORM_OBSERVATIONS.md`, and small evidence artifacts under `docs/waveforms/`. Generated simulation libraries remain under ignored `build/` directories.
+**Individual done when:** Everyone has an agreed starting contract, a concrete deliverable, a deadline, and clear file ownership; review/release criteria are published. Other members' finished code is not required for this coordination package.
 
-**Done when:** The bench detects incorrect timing rather than merely printing PASS, all required cases pass on the final RTL, and waveform measurements agree with the checks. Member 3 can explain what each test establishes and what remains untested.
+**At the shared checkpoint:** Review PRs and final evidence, require relevant reruns after executable changes, and approve completion only when the real module, independent tests, integration, synthesis, and documentation agree. Each person demonstrates their own work.
 
-**Dependency:** Agreed contract from OSC-01. Cases and expected edges can be designed while OSC-02 is being implemented; execution requires the module.
+## Progress and waiting policy
 
-## OSC-04 — Member 4: PULSE integration, build configuration, and synthesis
+Use one task/issue per owner. Suggested branches: `oscillator/documentation`, `oscillator/rtl`, `oscillator/unit-tests`, and `oscillator/integration`. Preserve individual commits and authorship.
 
-**Objective:** Make the new function work with the existing PULSE core without disturbing timer or debounce behavior.
+Each progress update should contain:
 
-Tasks:
+1. A link to the actual artifact or commit produced.
+2. Checks run, their outcome, and whether they used baseline RTL, a checker fixture, or the new real module.
+3. The next independently executable action.
+4. Any specific blocker, its owner, and which remaining actions are unaffected.
 
-- [ ] Add the module and agreed ports to `src/pulse_top.v`.
-- [ ] Update existing PULSE instantiations for the new interface. In the current water-tank adapter, explicitly disable the extension if it is unused; no new water-tank behavior is part of this assignment.
-- [ ] Extend `tb/pulse_top_tb.v` to run periodic output alongside timer start/cancel and independently changing/noisy sensor channels.
-- [ ] Check that periodic deadlines remain fixed during timer/sensor activity, and that local periodic enable changes leave the other functions operating correctly.
-- [ ] Coordinate expected integration deadlines with Member 3, including registered-output observation latency.
-- [ ] Update ModelSim compile/run lists, the portable TerosHDL project, and Quartus source assignments for all new files and benches.
-- [ ] Run the new unit bench and every existing bench from fresh simulation libraries; preserve existing verification intent.
-- [ ] Run Quartus Analysis & Synthesis for both existing tops and review warnings. If the application ties the feature off and synthesis removes it there, ensure `pulse_top` exposes and synthesizes it.
-- [ ] Check the portable project and scripts from a clean clone on the validation machine. Ask another teammate to reproduce the setup on their machine where the tools are available.
-- [ ] Record commit, tool versions, commands, run directories, results, resources, and remaining warnings. Update the simulation guide and synthesis report.
+A real missing requirement or unavailable tool must be reported honestly. "Waiting for another member" alone is not a complete update while that person's independent checklist still contains executable work. Once the independent package is finished, a genuine integration wait is legitimate: submit it for review, help review other packages, and label final results pending. Do not manufacture busywork or require fabricated test results to hide a dependency.
 
-**Primary files:** `src/pulse_top.v`, necessary connection updates in `src/application/water_tank_controller.v` and its bench, `tb/pulse_top_tb.v`, `sim/`, `synth/`, `pulse.teroshdl.yml`, `docs/SIMULATION_GUIDE.md`, and `docs/SYNTHESIS_CHECK.md`.
+Example: Member 3 can finish the case matrix and prove the checker rejects an early pulse before Member 2 finishes RTL. They cannot claim the real oscillator passes until they test it. Member 4 can complete actual baseline reproduction before new source files arrive; only the new integrated result waits.
 
-**Done when:** All existing and new required tests pass in a clean build, concurrency checks pass, both synthesis tops pass with reviewed warnings, and the portable project lists resolve. Do not infer a new PASS from old transcripts.
+## Shared integration and release gate
 
-**Dependency:** Integration preparation starts after OSC-01; final execution needs OSC-02 and OSC-03. Member 4 owns integration/configuration fixes; Member 2 owns defects inside the new RTL module.
+This is the only phase that intentionally combines everyone's deliverables. It is coordinated by the lead, executed by the appropriate owners, and does not transfer all remaining coding to the lead.
 
-## OSC-05 — You: technical lead, review, and release
+- [ ] Member 2's module and Member 3's tests use the same accepted contract revision.
+- [ ] Real-module independent tests pass, with correct startup, periods, widths/duty, configuration, reset, and restart behavior.
+- [ ] Member 4's concurrency tests prove independent timer/debounce/periodic operation.
+- [ ] All existing regression intent is preserved and all required old/new benches pass in fresh libraries.
+- [ ] No checker fixture or placeholder is used as the delivered oscillator or as its synthesis evidence.
+- [ ] Quartus Analysis & Synthesis passes for both production tops; warnings and resource changes are reviewed.
+- [ ] Measured waveforms agree with self-checks and clearly identify the tested source revision.
+- [ ] A fresh checkout reproduces the integrated result without copied build artifacts.
+- [ ] Member 1 updates evidence/traceability/report/demo with actual results, and each owner reviews their portion.
+- [ ] The lead approves the complete release and all members can explain their contribution.
 
-**Objective:** Keep the scope coherent and accept evidence-backed contributions without becoming the default implementer for all four assignments.
+Keep `main` runnable. Combine RTL, independent tests, and integration on a review branch before merging changes that rely on each other. Readiness of an individual's branch does not require prematurely merging an incomplete feature into `main`.
 
-Tasks:
-
-- [ ] Assign names, availability, and agreed deadlines to OSC-01–04. Confirm that each person can access the repository and existing instructions.
-- [ ] Agree the output contract with Member 1 and the verifier before implementation begins.
-- [ ] Maintain the task board and review dependency/blocker updates. Route technical defects to their owners.
-- [ ] Review the four deliverables and require cross-review; do not accept screenshots or PASS messages without a reproducible source/command/result link.
-- [ ] Coordinate PR merge order and keep `main` consistent. Require owners to resolve their own review comments and update branches.
-- [ ] Verify Member 4's final evidence corresponds to the final integrated executable revision; require relevant reruns after subsequent code changes.
-- [ ] Review the demo and let every teammate explain their own contribution, including limitations.
-- [ ] Approve the completed checklist and release/report only when the evidence supports the claimed oscillator functionality.
-
-**Primary ownership:** Task board, scope decisions, PR reviews, completion checklist, and release coordination. Specialist file edits remain with OSC-01–04.
-
-**Done when:** Contributions are reviewed and integrated, completion criteria below are met, and the team can demonstrate the result without relying on you to explain every subsystem.
-
-## Work order and Git handoffs
-
-1. Everyone reproduces the documented baseline and reads their assigned source/docs. This is onboarding, not a request to rewrite verified work.
-2. Member 1 drafts the contract; you and Member 3 review it. Settle the output choice before coding the feature.
-3. Members 2 and 3 develop RTL and independent tests in parallel. Member 4 prepares the top-level wiring and tool updates from the agreed ports. Member 1 prepares the demo outline.
-4. Member 3 tests the RTL; Members 2 and 4 fix module and integration defects in their respective areas.
-5. Member 4 runs the complete clean regression/synthesis and records evidence. Member 1 updates traceability/report/demo using those results.
-6. You review the final package; each member demonstrates their contribution.
-
-Use one main task/issue per assignment, with the checklists above as subtasks. Suggested branch names are `oscillator/specification`, `oscillator/rtl`, `oscillator/unit-tests`, and `oscillator/integration`. Avoid simultaneous edits to another owner's files; agree any shared-file changes first.
-
-Suggested PR order: specification; implementation with independently reviewed unit tests; integration/tooling with complete regression; final evidence/documentation. Cross-branch integration can be tested on the integration branch before merging so `main` does not temporarily contain a broken build. If RTL and unit tests are developed on separate branches, combine them into a reviewable passing change while preserving individual commits and authorship.
-
-Every PR should name the task, behavior changed, source revision, verification commands/results, and unresolved limits. Reuse the existing scripts; add a new bench to their supported test list instead of relying on an undocumented personal flow. The lead approves merges, while owners prepare and correct their own contributions.
-
-## Team completion checklist
-
-- [ ] Pulse or square-wave requirement, intended use, and interface are explicitly agreed.
-- [ ] The output period, startup, minimum settings, enable/reset, and reconfiguration behavior match the contract.
-- [ ] New HDL and testbenches use Verilog-2001 and `.v` files.
-- [ ] Independent unit tests and PULSE concurrency tests pass.
-- [ ] Existing timer, debounce, top-level, and application regression intent is preserved and all required tests pass.
-- [ ] Measured waveform evidence agrees with the self-checks and states what it demonstrates.
-- [ ] Clean ModelSim compilation/regression and Quartus Analysis & Synthesis pass; warnings and resource changes are explained.
-- [ ] A fresh checkout reproduces the recorded results with no copied build artifacts.
-- [ ] Requirements, interface, timing, architecture, verification, traceability, and final report describe the delivered feature accurately.
-- [ ] Each member has an identifiable contribution and can explain it during the demonstration.
-
-Existing verification follow-ups, such as timer cancellation one cycle before expiry and a practical full five-second run, remain separate backlog items. Do not silently attach them to the oscillator assignment or claim that adding the oscillator closes them. Physical hardware and new water-tank behavior are also outside this work package.
+The original timer's additional cancellation boundary and optional five-second run remain separate backlog items. Physical hardware, new water-tank behavior, and extra features introduced only to occupy team members are outside this work package.
