@@ -126,7 +126,7 @@ Final review also checked all 18 Markdown documents, 164 local file links, table
 
 ## 8. Exact current project structure
 
-The following is the complete 42-file tracked project tree, including this report. Generated simulator/Quartus data are separate ignored outputs under `build/`; `.git/` holds version history. Neither is an input dependency. The temporary diagnostics, clean clone, and workstation TerosHDL registry are outside this repository.
+The following is the complete 42-file tracked project tree at conversion delivery on 2026-09-10, including this report. Later project documents may add files; this tree preserves the conversion snapshot. Generated simulator/Quartus data are separate ignored outputs under `build/`; `.git/` holds version history. Neither is an input dependency. The temporary diagnostics, clean clone, and workstation TerosHDL registry are outside this repository.
 
 ```text
 pulse_clock/
