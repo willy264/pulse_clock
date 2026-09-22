@@ -5,6 +5,7 @@ module pulse_top_tb;
     localparam integer SENSOR_CHANNELS = 2;
     localparam integer DEBOUNCE_CYCLES = 3;
     localparam integer SENSOR_DELAY = DEBOUNCE_CYCLES + 2;
+    localparam integer PERIOD_WIDTH = 5;
 
     reg clk = 1'b0;
     reg reset = 1'b1;
@@ -17,6 +18,9 @@ module pulse_top_tb;
     wire timer_done;
     wire [SENSOR_CHANNELS-1:0] sensor_debounced;
     wire [SENSOR_CHANNELS-1:0] sensor_valid;
+    reg periodic_enable = 1'b0;
+    reg [PERIOD_WIDTH-1:0] cfg_period_cycles = 5'd0;
+    wire periodic_tick;
 
     integer edge_count = 0;
     integer test_passed = 0;
@@ -28,7 +32,8 @@ module pulse_top_tb;
     pulse_top #(
         .TIMER_WIDTH(TIMER_WIDTH),
         .SENSOR_CHANNELS(SENSOR_CHANNELS),
-        .DEBOUNCE_CYCLES(DEBOUNCE_CYCLES)
+        .DEBOUNCE_CYCLES(DEBOUNCE_CYCLES),
+        .PERIOD_WIDTH(PERIOD_WIDTH)
     ) dut (
         .clk(clk),
         .reset(reset),
@@ -40,7 +45,9 @@ module pulse_top_tb;
         .timer_busy(timer_busy),
         .timer_done(timer_done),
         .sensor_debounced(sensor_debounced),
-        .sensor_valid(sensor_valid)
+        .sensor_valid(sensor_valid),
+        .periodic_enable(periodic_enable),
+        .cfg_period_cycles(cfg_period_cycles), .periodic_tick(periodic_tick)
     );
 
     always #10 clk = ~clk;
@@ -51,6 +58,20 @@ module pulse_top_tb;
         if (condition !== 1'b1) begin
             $display("FAIL pulse_top_tb edge %0d: %0s", edge_count, message);
             $stop;
+        end
+    endtask
+
+    task automatic periodic_edge(
+        input r, input en, input pen, input [PERIOD_WIDTH-1:0] period,
+        input st, input ca, input [TIMER_WIDTH-1:0] cycles,
+        input [SENSOR_CHANNELS-1:0] sensors
+    );
+        begin
+            @(negedge clk);
+            reset = r; enable = en; periodic_enable = pen;
+            cfg_period_cycles = period; timer_start = st; timer_cancel = ca;
+            cfg_timer_cycles = cycles; sensor_in = sensors;
+            @(posedge clk); #1;
         end
     endtask
 
@@ -203,8 +224,67 @@ module pulse_top_tb;
             expect_outputs(0, 0, 2'b11, 2'b11, "aborted work never resumes");
         end
 
+        check(periodic_tick === 1'b0, "P07 disabled extension is quiet at original-suite completion");
+
+        // P08: P=4 phase is independent of noisy sensors and timer activity.
+        periodic_edge(1, 1, 0, 5'd4, 0, 0, 8'd0, 2'b00);
+        periodic_edge(0, 1, 1, 5'd4, 1, 0, 8'd12, 2'b11);
+        check(periodic_tick === 1'b0, "P08 capture edge has no event");
+        for (step = 1; step <= 16; step = step + 1) begin
+            periodic_edge(0, 1, 1, 5'd2, step == 2 || step == 8, step == 6,
+                (step == 8) ? 8'd8 : 8'd1, (step % 2 == 0) ? 2'b11 : 2'b10);
+            check(periodic_tick === (step % 4 == 0), "P08 captured periodic phase survives timer controls and live cfg");
+            expect_outputs(step < 6 || (step >= 8 && step < 16), step == 16,
+                (step >= SENSOR_DELAY) ? 2'b10 : 2'b00,
+                (step >= SENSOR_DELAY) ? 2'b10 : 2'b00,
+                "P08 independent periodic, one-shot, and noisy sensor channels");
+        end
+
+        // P09: Local periodic disable/restart does not delay sensor qualification or timer.
+        periodic_edge(0, 1, 0, 5'd3, 1, 0, 8'd9, 2'b00);
+        check(periodic_tick === 1'b0, "P09 local disable clears prior event");
+        for (step = 1; step <= 10; step = step + 1) begin
+            periodic_edge(0, 1, step >= 2, 5'd3, 0, 0, 8'd1, 2'b00);
+            check(periodic_tick === (step >= 5 && (step - 2) % 3 == 0),
+                "P09 fresh periodic phase starts at local reenable");
+            expect_outputs(step < 9, step == 9,
+                (step >= SENSOR_DELAY) ? 2'b00 : 2'b10,
+                (step >= SENSOR_DELAY) ? 2'b11 : 2'b10,
+                "P09 local periodic controls preserve other deadlines");
+        end
+
+        // P10: Global disable at first periodic expiry clears all three functions.
+        periodic_edge(1, 1, 1, 5'd3, 0, 0, 8'd0, 2'b00);
+        periodic_edge(0, 1, 1, 5'd3, 1, 0, 8'd10, 2'b11);
+        repeat (2) periodic_edge(0, 1, 1, 5'd3, 0, 0, 8'd10, 2'b11);
+        periodic_edge(0, 0, 1, 5'd3, 1, 0, 8'd10, 2'b11);
+        check(periodic_tick === 1'b0, "P10 global disable beats periodic expiry");
+        expect_outputs(0, 0, 2'b00, 2'b00, "P10 all functions clear on disable");
+        periodic_edge(0, 1, 1, 5'd2, 0, 0, 8'd10, 2'b11);
+        check(periodic_tick === 1'b0, "P10 reenable captures a new period");
+        for (step = 1; step <= 6; step = step + 1) begin
+            periodic_edge(0, 1, 1, 5'd2, 0, 0, 8'd10, 2'b11);
+            check(periodic_tick === (step % 2 == 0), "P10 fresh periodic phase after global disable");
+            expect_outputs(0, 0, (step >= SENSOR_DELAY) ? 2'b11 : 2'b00,
+                (step >= SENSOR_DELAY) ? 2'b11 : 2'b00, "P10 no timer resume; sensor reacquires");
+        end
+
+        // P11: Reset cancels an expiry, then zero period is a per-cycle enable.
+        periodic_edge(1, 1, 1, 5'd2, 0, 0, 8'd0, 2'b00);
+        periodic_edge(0, 1, 1, 5'd2, 1, 0, 8'd2, 2'b00);
+        periodic_edge(0, 1, 1, 5'd2, 0, 0, 8'd2, 2'b00);
+        periodic_edge(1, 1, 1, 5'd0, 1, 0, 8'd2, 2'b00);
+        check(periodic_tick === 1'b0, "P11 reset beats periodic expiry");
+        expect_outputs(0, 0, 2'b00, 2'b00, "P11 reset beats timer expiry and start");
+        periodic_edge(0, 1, 1, 5'd0, 0, 0, 8'd2, 2'b00);
+        check(periodic_tick === 1'b0, "P11 zero capture still waits one interval");
+        repeat (4) begin
+            periodic_edge(0, 1, 1, 5'd5, 0, 0, 8'd2, 2'b00);
+            check(periodic_tick === 1'b1, "P11 P=1 emits consecutive event cycles");
+        end
+
         test_passed = 1;
-        $display("PASS pulse_top_tb: concurrent timing, qualification, cancellation, reset, and disable");
+        $display("PASS pulse_top_tb: cases P01-P11; independent timer, debounce, and periodic output");
         $finish;
     end
 

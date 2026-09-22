@@ -1,21 +1,26 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('all', 'pulse_timer_tb', 'pulse_debounce_tb', 'pulse_top_tb', 'water_tank_system_tb')]
+    [ValidateSet('all', 'pulse_timer_tb', 'pulse_debounce_tb', 'pulse_top_tb', 'water_tank_system_tb', 'pulse_periodic_smoke_tb', 'pulse_periodic_checker_tb', 'pulse_periodic_tb')]
     [string]$Test = 'all',
     [string]$ModelSimBin = '',
     [ValidateRange(10, 3600)]
-    [int]$TimeoutSeconds = 180
+    [int]$TimeoutSeconds = 180,
+    [switch]$InjectFailure
 )
 $ErrorActionPreference = 'Stop'
+if ($InjectFailure -and $Test -ne 'pulse_periodic_tb') {
+    throw 'Use -InjectFailure only with -Test pulse_periodic_tb; a nonzero exit is expected.'
+}
 $pulseRepo = Split-Path -Parent $PSScriptRoot
 $pulseVsim = if ($ModelSimBin) { Join-Path $ModelSimBin 'vsim.exe' } else { (Get-Command vsim -ErrorAction Stop).Source }
 $pulseVmap = Join-Path (Split-Path -Parent $pulseVsim) 'vmap.exe'
 if (-not (Test-Path -LiteralPath $pulseVsim)) { throw "ModelSim executable not found: $pulseVsim" }
 $pulseRun = Join-Path $pulseRepo ('build/modelsim/run-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 New-Item -ItemType Directory -Path $pulseRun -Force | Out-Null
-$pulseTests = if ($Test -eq 'all') { @('pulse_timer_tb', 'pulse_debounce_tb', 'pulse_top_tb', 'water_tank_system_tb') } else { @($Test) }
+$pulseTests = if ($Test -eq 'all') { @('pulse_timer_tb', 'pulse_debounce_tb', 'pulse_periodic_smoke_tb', 'pulse_periodic_checker_tb', 'pulse_periodic_tb', 'pulse_top_tb', 'water_tank_system_tb') } else { @($Test) }
 $pulseResults = @()
 $pulseOldTest = $env:PULSE_TESTBENCH
+$pulseOldInjection = $env:PULSE_INJECT_FAILURE
 
 function Invoke-PulseModelSim {
     param([string]$DoCommand, [string]$Label)
@@ -39,6 +44,7 @@ function Invoke-PulseModelSim {
 
 Push-Location $pulseRun
 try {
+    $env:PULSE_INJECT_FAILURE = if ($InjectFailure) { '1' } else { '0' }
     & $pulseVmap -c | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not create a local modelsim.ini.' }
     Invoke-PulseModelSim -DoCommand 'source ../../../sim/compile.do; quit -f -code 0' -Label 'compile'
@@ -64,5 +70,6 @@ try {
 }
 finally {
     $env:PULSE_TESTBENCH = $pulseOldTest
+    $env:PULSE_INJECT_FAILURE = $pulseOldInjection
     Pop-Location
 }

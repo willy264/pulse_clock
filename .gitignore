@@ -6,3 +6,4 @@
 *.bak
 *.rpt.bak
 /modelsim.ini
+__pycache__/

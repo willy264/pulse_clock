@@ -12,7 +12,7 @@ set_global_assignment -name DEVICE $pulse_device
 set_global_assignment -name TOP_LEVEL_ENTITY $pulse_top
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name VERILOG_INPUT_VERSION VERILOG_2001
-foreach pulse_source [list src/pulse_timer.v src/pulse_debounce.v src/pulse_top.v src/application/water_tank_controller.v] {
+foreach pulse_source [list src/pulse_timer.v src/pulse_debounce.v src/pulse_periodic.v src/pulse_top.v src/application/water_tank_controller.v] {
     set_global_assignment -name VERILOG_FILE [file join $pulse_repo $pulse_source]
 }
 set_global_assignment -name SDC_FILE [file join $pulse_repo synth pulse.sdc]

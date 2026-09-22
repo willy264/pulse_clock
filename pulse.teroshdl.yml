@@ -2,7 +2,7 @@
   "name": "PULSE_Verilog",
   "project_type": "genericProject",
   "project_disk_path": "",
-  "toplevel": "tb/water_tank_system_tb.v",
+  "toplevel": "tb/pulse_periodic_tb.v",
   "files": [
     {
       "name": "src/pulse_timer.v",
@@ -14,6 +14,14 @@
     },
     {
       "name": "src/pulse_debounce.v",
+      "file_type": "verilogSource",
+      "file_version": "2000",
+      "is_include_file": false,
+      "logical_name": "work",
+      "is_manual": true
+    },
+    {
+      "name": "src/pulse_periodic.v",
       "file_type": "verilogSource",
       "file_version": "2000",
       "is_include_file": false,
@@ -86,6 +94,38 @@
     },
     {
       "name": "tb/water_tank_system_tb.v",
+      "file_type": "verilogSource",
+      "file_version": "2000",
+      "is_include_file": false,
+      "logical_name": "work",
+      "is_manual": true
+    },
+    {
+      "name": "tb/pulse_periodic_smoke_tb.v",
+      "file_type": "verilogSource",
+      "file_version": "2000",
+      "is_include_file": false,
+      "logical_name": "work",
+      "is_manual": true
+    },
+    {
+      "name": "tb/pulse_periodic_checker.v",
+      "file_type": "verilogSource",
+      "file_version": "2000",
+      "is_include_file": false,
+      "logical_name": "work",
+      "is_manual": true
+    },
+    {
+      "name": "tb/pulse_periodic_checker_tb.v",
+      "file_type": "verilogSource",
+      "file_version": "2000",
+      "is_include_file": false,
+      "logical_name": "work",
+      "is_manual": true
+    },
+    {
+      "name": "tb/pulse_periodic_tb.v",
       "file_type": "verilogSource",
       "file_version": "2000",
       "is_include_file": false,

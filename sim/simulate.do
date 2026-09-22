@@ -2,7 +2,7 @@ onerror {quit -f -code 2}
 # ModelSim 10.1d also invokes onbreak for a normal $finish. Resume the
 # macro, then require the explicit success marker; a failing $stop leaves it zero.
 onbreak {resume}
-set pulse_tests [list pulse_timer_tb pulse_debounce_tb pulse_top_tb water_tank_system_tb]
+set pulse_tests [list pulse_timer_tb pulse_debounce_tb pulse_top_tb water_tank_system_tb pulse_periodic_smoke_tb pulse_periodic_checker_tb pulse_periodic_tb]
 set pulse_tb pulse_top_tb
 if {[info exists env(PULSE_TESTBENCH)]} {set pulse_tb $env(PULSE_TESTBENCH)}
 if {[lsearch -exact $pulse_tests $pulse_tb] < 0} {
@@ -10,10 +10,18 @@ if {[lsearch -exact $pulse_tests $pulse_tb] < 0} {
     quit -f -code 2
 }
 # Keep internal signals observable for waveform review on the installed 10.1d tool.
-vsim -novopt -onfinish stop -modelsimini modelsim.ini -wlf ${pulse_tb}.wlf work.$pulse_tb
+set pulse_load [list -novopt -onfinish stop -modelsimini modelsim.ini -wlf ${pulse_tb}.wlf work.$pulse_tb]
+if {[info exists env(PULSE_INJECT_FAILURE)] && $env(PULSE_INJECT_FAILURE) eq "1" && $pulse_tb eq "pulse_periodic_tb"} {
+    lappend pulse_load +PULSE_INJECT_FAILURE
+}
+eval vsim $pulse_load
 log -r /*
 if {$pulse_tb eq "water_tank_system_tb"} {
     vcd file water_tank_system.vcd
+    vcd add -r /*
+}
+if {$pulse_tb eq "pulse_periodic_tb" || $pulse_tb eq "pulse_periodic_smoke_tb" || $pulse_tb eq "pulse_top_tb"} {
+    vcd file ${pulse_tb}.vcd
     vcd add -r /*
 }
 run -all
