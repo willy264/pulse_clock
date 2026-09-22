@@ -1,10 +1,10 @@
 # PULSE state machines and edge behavior
 
-Prepared: 2026-09-10. Status: **Baseline design for implementation; external clock, sensor, and application assumptions remain provisional.**
+Prepared: 2026-09-10; updated 2026-09-22. Status: **Working design with OSC-CONTRACT-1 periodic operation; external clock, sensor, and application assumptions remain provisional.**
 
 Implementation language: Verilog HDL
 
-This document makes the cycle contracts in [PULSE_TIMING_SPEC.md](PULSE_TIMING_SPEC.md) and [PULSE_INTERFACE.md](PULSE_INTERFACE.md) concrete. The [architecture](PULSE_ARCHITECTURE.md) defines the module boundaries. No pump-control or dry-run decision state belongs to these machines. The optional periodic generator is omitted until F-11 has an identified consumer.
+This document makes the cycle contracts in [PULSE_TIMING_SPEC.md](PULSE_TIMING_SPEC.md) and [PULSE_INTERFACE.md](PULSE_INTERFACE.md) concrete. The [architecture](PULSE_ARCHITECTURE.md) defines the module boundaries. No pump-control or dry-run decision state belongs to these machines. Section 6 adds periodic generation under [OSC-CONTRACT-1](OSCILLATOR_CONTRACT.md); timer and debounce transitions retain their existing behavior.
 
 ## 1. Reading the transitions
 
@@ -14,7 +14,7 @@ The Verilog implementation uses `always @(posedge clk)` and nonblocking assignme
 
 Reset is active-high and synchronous. Sampling `reset = 1` has highest priority. Sampling `enable = 0` has the same clearing effect but lower priority. Neither operation pauses an interval. Known outputs require a sampled reset; power-up values before it are not specified.
 
-`W = TIMER_WIDTH >= 1`, `S = SENSOR_CHANNELS >= 1`, and `1 <= D = DEBOUNCE_CYCLES <= 2,147,483,647` for the selected positive integer debounce parameter. Store the debounce remaining count in `B = max(1, ceil(log2(D + 1)))` unsigned bits. The inclusive range is `0..D`; intermediate parameter arithmetic must not overflow while deriving B. Load and compare explicitly sized unsigned values. Reject invalid elaboration parameters in the verification flow before relying on simulation or synthesis results.
+`W = TIMER_WIDTH >= 1`, `R = PERIOD_WIDTH >= 1`, `S = SENSOR_CHANNELS >= 1`, and `1 <= D = DEBOUNCE_CYCLES <= 2,147,483,647` for the selected positive integer debounce parameter. W and R are independent widths. Store the debounce remaining count in `B = max(1, ceil(log2(D + 1)))` unsigned bits. The inclusive range is `0..D`; intermediate parameter arithmetic must not overflow while deriving B. Load and compare explicitly sized unsigned values. Reject invalid elaboration parameters in the verification flow before relying on simulation or synthesis results.
 
 `inclusive_count_width(D)` is the Verilog-2001 constant function implementing this mathematical width. It counts right shifts of positive D, starting with one bit, so the maximum valid D yields 31 bits without computing `D + 1` in a signed integer.
 
@@ -208,9 +208,11 @@ Violations of these invariants are simulation failures. The implementation need 
 
 ## 5. Composition and implementation review
 
-`pulse_top` connects one timer and S independent debounce channels. It needs no additional functional state machine. Every child samples the common clock/reset/enable; only the timer receives start/cancel/configuration. Output port registers are owned by their respective child, with direct top-level connections and no added output stage.
+`pulse_top` connects one timer, one periodic generator, and S independent debounce channels. It needs no additional functional state machine. Every child samples common clock/reset/enable. Only the timer receives timer start/cancel/configuration; only the periodic generator receives local periodic enable/configuration. Output port registers are owned by their respective child, with direct top-level connections and no added output stage.
 
 A qualification completion and timer expiry may occur after the same edge. Both outputs must be preserved. GUARDIAN observes the registered results on a later edge and owns response-versus-timeout priority. A cancel already present before an expiry edge suppresses the timer event; a cancel derived later from a newly changed sensor output cannot suppress it retroactively.
+
+A periodic event can coincide with those outputs. Its local phase is unaffected by timer starts/cancels or sensor activity, and local periodic disable leaves both other functions progressing. Global reset/disable clears all functions. A separate synchronous consumer observes each registered periodic event one edge later.
 
 Before accepting RTL, review the following obligations against the eventual simulations:
 
@@ -224,6 +226,75 @@ Before accepting RTL, review the following obligations against the eventual simu
 | A candidate gets D full intervals and mismatch wins at expiry. | D = 1 and representative D; alternating noise and final-edge mismatch. |
 | Validity is independent of later candidate activity. | Startup invalidity, stable acceptance, and valid output held through rejected changes. |
 | Channels and timer advance independently. | Concurrent timer, chatter on one channel, and qualification on another. |
+| Periodic capture/reload preserves the accepted period. | First event and at least three repetitions; configuration changes while counting and on reload. |
+| Periodic clear controls outrank expiry and restart phase. | Reset, global disable, and local disable on expiry; full-period wait after recapture. |
+| Consecutive P = 1 cycles are distinct events. | Zero/one boundary checks and separate synchronous event-counter observations. |
+| Periodic state is independent of timer/sensor state. | Timer start/cancel and sensor chatter during repeating ticks; local periodic disable while timer/debounce continue. |
 | No inferred combinational state or duplicate register owners. | RTL review and Quartus analysis when the implementation exists. |
 
 The tables are design and review evidence. Passing functional simulation, synthesis results, and application behavior must be reported separately after they are run.
+
+## 6. Periodic generator: `pulse_periodic`
+
+### 6.1 State and retained configuration
+
+The one-bit `active` register encodes INACTIVE/ACTIVE. `periodic_tick` is a registered event level, not an additional state. There is no start strobe, completion acknowledgement, pause state, or autonomous configuration resampling.
+
+| State/register | Width | Meaning | Sampled reset/global-disable/local-disable value |
+| --- | --- | --- | --- |
+| INACTIVE | `active = 0` | Next jointly enabled edge captures a period. | Selected. |
+| ACTIVE | `active = 1` | Continue countdown and repeated reloads. | Not selected. |
+| `captured_period` | R | Effective period retained throughout active operation. | 0. |
+| `remaining` | R | Complete intervals remaining until the next event. | 0. |
+| `periodic_tick` | 1 | High during an event interval; may remain high on consecutive P = 1 events. | 0. |
+
+`captured_period` and `remaining` are unsigned. Only remaining decrements; captured period supplies every reload. At capture, both receive P = max(1, cfg_period_cycles). Capturing consumes no elapsed interval. The maximum representable period is loaded directly, without overflow-prone incrementing.
+
+```mermaid
+stateDiagram-v2
+    [*] --> INACTIVE
+    INACTIVE --> INACTIVE: reset or either enable low / clear
+    INACTIVE --> ACTIVE: reset low and both enables high / capture P, tick=0
+    ACTIVE --> ACTIVE: remaining>1 / decrement, tick=0
+    ACTIVE --> ACTIVE: remaining=1 / reload captured P, tick=1
+    ACTIVE --> INACTIVE: reset or either enable low / clear
+```
+
+The table below is authoritative when conditions overlap.
+
+### 6.2 Transition and output priorities
+
+Take the first applicable row. “Hold” preserves the previous register value. Clear conditions are grouped because all have identical effects on this module.
+
+| Priority | Old state / sampled condition | Next active | Next captured period | Next remaining | Next tick |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Any; reset high, global enable low, or local periodic enable low | 0 | 0 | 0 | 0 |
+| 2 | INACTIVE; reset low and both enables high | 1 | max(1, cfg_period_cycles) | max(1, cfg_period_cycles) | 0 |
+| 3 | ACTIVE; remaining = 1 | 1 | Hold | Captured period | 1 |
+| 4 | ACTIVE; remaining > 1 | 1 | Hold | remaining − 1 | 0 |
+
+ACTIVE with a zero or unknown remaining count is an invariant violation, not a legal recovery mode. Valid active state obeys `1 <= remaining <= captured_period <= 2^R - 1`. INACTIVE has captured period/count/tick all zero. Configuration must be known at capture; later changes cannot affect the retained period. Simulation-only checks detect invalid values through the existing FAIL/`$stop` path without adding runtime hardware fault behavior.
+
+### 6.3 Exact boundaries and consumer observation
+
+If capture occurs at p0, remaining becomes P and tick stays zero. After each pk with 1 <= k < P, remaining is P−k and tick is zero. At pP, reload remaining to P and assert tick. This repeats at p2P and p3P with no extra reload interval.
+
+| Edge, P = 3 | Old active/count | Action | Captured/count/tick after edge |
+| --- | --- | --- | --- |
+| p0 | INACTIVE/0 | Capture 3. | 3 / 3 / 0 |
+| p1 | ACTIVE/3 | Decrement. | 3 / 2 / 0 |
+| p2 | ACTIVE/2 | Decrement. | 3 / 1 / 0 |
+| p3 | ACTIVE/1 | First event; reload. | 3 / 3 / 1 |
+| p4 | ACTIVE/3 | Decrement; clear event. | 3 / 2 / 0 |
+| p6 | ACTIVE/1 | Second event; reload. | 3 / 3 / 1 |
+| p9 | ACTIVE/1 | Third event; reload. | 3 / 3 / 1 |
+
+For supplied zero or one, effective P is one. After p0 the count is one and tick is zero. Every subsequent enabled edge takes the expiry/reload row, leaving count one and tick high. The first three event cycles follow p1, p2, and p3 even though only p1 creates a rising transition of the tick signal.
+
+A separate `posedge clk` consumer sees the pre-edge tick. It first consumes a P = 3 event at p4, then p7/p10; for P = 1 it first consumes at p2, then every following edge. Clearing on pP suppresses that new event. Clearing at p(P+1) does not erase the preceding event interval; the consumer's own reset/enable gating determines whether it counts that prior high sample.
+
+### 6.4 Configuration, clears, and independence
+
+Changing configuration at any active edge, including expiry, leaves both the current deadline and future reload value based on the original capture. Sample reset/global disable/local disable to clear active phase. The next jointly enabled edge captures the current configuration as a new p0 and waits its complete period. A local disable pulse not present at a sampling edge has no effect.
+
+Timer control and sensor signals do not appear in the periodic transition guards. Periodic local control does not appear in timer or sensor guards. The existing water-tank adapter explicitly holds periodic enable low, sets its configuration to zero, and leaves tick unused. The recurring-event demonstration belongs to the periodic unit bench; no new pump, protection, or sensor-sampling policy is introduced.

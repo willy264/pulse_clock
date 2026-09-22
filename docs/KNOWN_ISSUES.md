@@ -1,10 +1,25 @@
 # Known issues and verification limits
 
-Updated: 2026-09-10. There is no known failing legal-input regression case in the delivered baseline. This is not a proof that every possible implementation fault is absent.
+Updated: 2026-09-22. There is no known failing legal-input regression case in the delivered OSC-CONTRACT-1 baseline. This is not a proof that every possible implementation fault is absent.
 
-Implementation language: Verilog HDL. Conversion evidence is in [VERILOG_CONVERSION.md](VERILOG_CONVERSION.md). All original functional checks passed again in clean workspace run `build/modelsim/run-20260910-065458-111`; both production tops passed clean synthesis in `build/quartus/run-20260910-065547-884`.
+Implementation language: Verilog HDL (Verilog-2001). Current periodic implementation, verification, and limitations are recorded in [OSCILLATOR_COMPLETION.md](OSCILLATOR_COMPLETION.md). The [conversion record](VERILOG_CONVERSION.md) preserves the historical 2026-09-10 four-bench baseline; it is not the current source-count or resource report.
+
+## Current verification evidence
+
+The seven positive benches passed in workspace run `build/modelsim/run-20260922-103440-575`; both production tops passed Analysis & Synthesis in `build/quartus/run-20260922-102633-279`. The unchanged timer/debounce/application suites retain their recorded counts and deadlines. The top bench retains P01-P07 and adds P08-P11 concurrency cases. New periodic smoke, independent unit, and checker self-test benches pass; the checker-only bench's nine deliberately bad samples are expected detections, not DUT failures.
+
+Final clean-clone evidence uses exact executable revision `15857ae6b79d84b10c619ce947af10efca7a1de6` at `C:\Users\HP\AppData\Local\Temp\pulse periodic final 696fbc152aed4b4c8c5c2c546c752c2f`:
+
+| Check | Artifact path relative to final clone | Result |
+| --- | --- | --- |
+| Fresh compilation and complete positive regression | `build/modelsim/run-20260922-105734-427` | All seven benches PASS; no compiler/simulator warnings or errors. |
+| Fresh synthesis for both production tops | `build/quartus/run-20260922-105734-620` | Both PASS; core 385 estimated logic elements / 158 registers; application 241 / 96. Warning 20028 only for each top. |
+
+These are digital simulation and synthesis results. They do not establish external interface approval, calibrated physical durations, fitted timing, or physical hardware operation.
 
 ## Resolved issues
+
+K-01 through K-06 describe fixes from the original implementation and Verilog conversion. Their four-bench references are historical evidence; current seven-bench results are above.
 
 | ID | Severity / reproduction | Cause | Fix | Verification status |
 | --- | --- | --- | --- | --- |
@@ -26,9 +41,14 @@ Implementation language: Verilog HDL. Conversion evidence is in [VERILOG_CONVERS
 | L-05 | Application model limit | Initial MID response cancels monitoring; later flow loss during confirmed filling does not start a new watchdog. | Deliberate APP-04 scope, not a complete fault diagnosis. Extend only with agreed requirements. |
 | L-06 | Model fidelity limit | Unitless 0…100 tank with discrete fill/drain steps and instantaneous source-dependent pump flow. | Digital functional demonstration, not a hydraulic/physical prediction. |
 | L-07 | Tool warning | Quartus warning 20028 on both tops. | Parallel compilation unavailable under installed license; serial synthesis passes. |
-| L-08 | Diagnostic evidence portability | Invalid-parameter/unknown-control and deliberate-check-failure probes were run from temporary test sources, outside the four committed positive benches. | Supplemental observed evidence; the standard runner does not reproduce these negative probes automatically. Unused-state recovery is specified but not fault-injection verified. |
-| L-09 | Invalid-parameter diagnostic only | Deliberate `TIMER_WIDTH=0` TEMP fixture emits ModelSim `vsim-8602` for a zero replication multiplier before the positivity guard prints `FAIL` and stops. | Width zero is outside the supported range. All legal-width compilation/simulation runs are warning-free; W=1 remains valid. Do not interpret the warning from this negative probe as a valid-design warning. |
+| L-08 | Diagnostic evidence portability | Original timer/debounce invalid-parameter/unknown-control probes and five new periodic diagnostic probes use temporary sources outside the seven positive benches. | Supplemental observations; standard positive regression does not reproduce those probes. Periodic runner failure injection is now reproducible with `./sim/run.ps1 -Test pulse_periodic_tb -InjectFailure`; its expected failure is documented separately. Unused-state recovery is specified but not fault-injection verified. |
+| L-09 | Invalid-parameter diagnostic only | Deliberate zero timer/period widths emit ModelSim `vsim-8602` for zero replication before the positivity guard prints `FAIL` and stops. | Width zero is unsupported. Legal-width positive compilation/simulation is warning-free; width one is valid. The negative-probe warning is not a valid-design warning. |
+| L-10 | Periodic waveform/assignment boundary | OSC-CONTRACT-1 produces registered enable events; P = 1 holds tick HIGH continuously after p1, representing an event each clock cycle. It does not produce a 50% duty square wave. | Consumers count high samples on the system clock, not tick rising transitions. A different square-wave assignment interpretation needs an amended contract and tests. Supervisor/external-team acceptance is not claimed. |
+| L-11 | Periodic verification coverage limit | Full expiry of maximum 32-bit period 4,294,967,295 cycles is unrun. At illustrative 50 MHz that interval is 85.8993459 s. | Every 4-bit setting completes at least three periods; width one and representative 32-bit periods are exercised. Maximum-period public-output checks establish no premature event during the bounded observation and correct abort/restart, not full-duration expiry. |
+| L-12 | Application integration scope | The water-tank controller holds periodic enable low, supplies zero periodic configuration, and leaves tick unused. No external event consumer is agreed. | Recurring-event consumption is demonstrated by a synchronous unit-bench event counter; top tests exercise enabled concurrency. Existing water-tank behavior is retained. |
 
-The eight current parameter/control probes, the intentional application check failure, and compiler rejection evidence are under `C:\Users\HP\AppData\Local\Temp\pulse-verilog-diagnostics-3b18d728f1b04b5583b11da343865f63`. All eight emitted the expected `FAIL` diagnostic and stopped before the TEMP driver completion marker. The independent positive regression is under `C:\Users\HP\AppData\Local\Temp\pulse-verilog-bench-d98df18a568e4174b9517b863f0ba81a`. The [verification plan](PULSE_VERIFICATION_PLAN.md) records their scope; the conversion report records the current executable revision and final fresh-checkout evidence.
+The eight historical conversion parameter/control probes, intentional application-check failure, and compiler rejection evidence remain under `C:\Users\HP\AppData\Local\Temp\pulse-verilog-diagnostics-3b18d728f1b04b5583b11da343865f63`. All eight emitted the expected `FAIL` diagnostic and stopped before the TEMP driver completion marker. The historical independent positive regression is under `C:\Users\HP\AppData\Local\Temp\pulse-verilog-bench-d98df18a568e4174b9517b863f0ba81a`.
 
-Periodic generation is a deferred optional feature with no confirmed consumer; its absence is not a failed requirement. No unrun case is reported as PASS.
+The five periodic diagnostic probes are under `C:\Users\HP\AppData\Local\Temp\pulse-periodic-diagnostics-adefaf61ef72462ba31838e8896f1749`. They cover zero width, unknown reset, unknown global/local enables, and unknown accepted configuration, each with the expected diagnostic and premature stop. Reproducible periodic failure injection is recorded in workspace run `build/modelsim/run-20260922-102632-929`: simulator exit 4 and no success marker. These negative outcomes are expected diagnostic evidence; they are separate from positive PASS results.
+
+Periodic generation is included in the current working scope under [OSC-CONTRACT-1](OSCILLATOR_CONTRACT.md). The additional timer cancellation-one-cycle-before-expiry check and full five-second timer run remain separate backlog items; oscillator completion does not claim to add or execute them. No unrun case is reported as PASS.

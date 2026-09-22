@@ -1,5 +1,7 @@
 # Verilog HDL conversion and verification
 
+**Historical snapshot notice — 2026-09-22:** This document records the completed 2026-09-10 language conversion at executable revision `c9c9016d3703e60e37317406c354b07f4bde38f0`. References below to “current” files, 11 sources, four benches, four production files, and resource counts describe that conversion snapshot. The later periodic extension retains Verilog-2001 but changes those inventories and core resources. See [OSCILLATOR_COMPLETION.md](OSCILLATOR_COMPLETION.md) for the current 16-source, seven-bench, five-production-file results, exact executable revision, and clean-checkout evidence. Conversion-only scope statements below are historical, not a restriction on the subsequently requested oscillator work.
+
 Date: 2026-09-10. Status: **Conversion complete; clean simulation and Quartus Analysis & Synthesis passed.**
 
 Implementation language: Verilog HDL (Verilog-2001).

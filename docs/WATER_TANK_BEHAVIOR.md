@@ -4,9 +4,13 @@ Status: **PROVISIONAL — engineering simulation assumptions, not another team's
 
 Implementation language: Verilog HDL
 
+Updated 2026-09-22 for the OSC-CONTRACT-1 integration: the periodic extension is explicitly disabled in this application. The existing behavior and A-G test intent below are unchanged.
+
 ## 1. Ownership and assumptions
 
 `src/application/water_tank_controller.v` is a synthesizable demonstration of GUARDIAN policy around PULSE. It is replaceable when GUARDIAN supplies an agreed interface. Simulation-only tank, pump, and noise models are `.v` files in `tb/models`; they model digital cause/effect and make no hydraulic, electrical, mechanical, or hardware safety claim. The Verilog-2001 conversion preserves all application assumptions and model behavior below.
+
+The controller's PULSE instance ties `periodic_enable` low, drives zero `cfg_period_cycles`, and leaves `periodic_tick` unused. It introduces no periodic sampling, pump timing, recovery, or additional protection window. Recurring-event consumption is demonstrated separately in the periodic unit bench, and enabled concurrency is checked at the reusable PULSE top. [OSC-CONTRACT-1](OSCILLATOR_CONTRACT.md) does not assert an agreed external application consumer.
 
 | ID | Demonstration assumption | Reason / implication |
 | --- | --- | --- |
@@ -74,4 +78,4 @@ The self-checking application testbench must demonstrate:
 | F | Response/done on the same observation edge | Response takes priority under APP-06. |
 | G | Contradictory qualified thresholds and disable/re-enable | APP-07 inhibits/stops pumping; disable resets; fresh qualification after enable. |
 
-Use accelerated counts to run these scenarios quickly and label them as simulation parameters. The reusable one-shot and debounce tests separately check nominal/default durations. These are planned tests; outcomes must be recorded only after ModelSim executes them.
+Use accelerated counts to run these scenarios quickly and label them as simulation parameters. The reusable one-shot and debounce tests separately cover their recorded nominal/default-duration cases and documented unrun long-duration limits. The A-G expected behaviors above retain their original test intent; actual current results are in [OSCILLATOR_COMPLETION.md](OSCILLATOR_COMPLETION.md). The oscillator integration reruns the existing application suite without adding new water-tank behavior or claiming new timer-duration tests.
