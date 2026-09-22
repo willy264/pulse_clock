@@ -1,35 +1,37 @@
 # Quartus analysis and synthesis check
 
-Executed on 2026-09-10 with Quartus II 64-bit **13.0.1 Build 232 SP1 Web Edition** using `synth/run.ps1`. Both default-parameter tops completed Analysis & Synthesis with **0 errors and 1 warning each**.
+Executed on 2026-09-22 with Quartus II 64-bit **13.0.1 Build 232 SP1 Web Edition** using `synth/run.ps1`. Both default-parameter tops completed Analysis & Synthesis with **0 errors and 1 warning each**, including a fresh checkout of executable revision `15857ae6b79d84b10c619ce947af10efca7a1de6`.
 
 Implementation language: Verilog HDL (Verilog-2001).
 
 ## Scope
 
-The generated local projects target representative Cyclone IV E `EP4CE22F17C6` solely to make RTL analysis concrete. This is not a selected university board or physical implementation. The four `src` files are synthesized; `tb` models and procedural diagnostic checks within synthesis translate-off regions are excluded. `pulse.sdc` records the illustrative 50 MHz clock. `synth/check.tcl` generates QPF/QSF projects with `.v` sources assigned as `VERILOG_FILE` and `VERILOG_INPUT_VERSION` set to `VERILOG_2001`.
+The generated projects target representative Cyclone IV E `EP4CE22F17C6` solely for RTL analysis. The five synthesizable sources are `pulse_timer.v`, `pulse_debounce.v`, `pulse_periodic.v`, `pulse_top.v`, and `application/water_tank_controller.v`. Testbenches/models and simulation diagnostic checks within synthesis translate-off regions are excluded. `pulse.sdc` records the illustrative 50 MHz clock. `synth/check.tcl` generates QPF/QSF projects with `VERILOG_FILE` and `VERILOG_INPUT_VERSION VERILOG_2001` assignments.
 
-No fitter, pin assignment, programming image, device programming, post-fit timing analysis, CDC MTBF analysis, or netlist equivalence run was performed. These results establish that the installed synthesis tool accepts the RTL; they do not establish 50 MHz timing closure or physical reliability.
+No fitter, pin assignment, programming image, device programming, post-fit timing analysis, CDC MTBF analysis, or netlist-equivalence run was performed. These results establish tool acceptance and synthesized resources; they do not establish physical timing closure.
 
 ## Observed reports
 
-Clean conversion run: `build/quartus/run-20260910-065547-884`, using executable revision `c9c9016d3703e60e37317406c354b07f4bde38f0`. Each top has an `output_files/<top>.map.rpt`, `.map.summary`, generated QPF/QSF, and `quartus.log`.
+Workspace run: `build/quartus/run-20260922-102633-279`. Final clean-checkout run: `build/quartus/run-20260922-105734-620`, relative to the clone recorded in [completion evidence](OSCILLATOR_COMPLETION.md). Each top has `output_files/<top>.map.rpt`, `.map.summary`, generated QPF/QSF, and `quartus.log`. Both runs agree:
 
-| Top | Estimated logic elements from map report | Registers from map report | Errors | Warnings |
+| Top | Estimated logic elements | Registers | Errors | Warnings |
 | --- | --- | --- | --- | --- |
-| `pulse_top` | 224 | 92 | 0 | 1 |
+| `pulse_top` | 385 | 158 | 0 | 1 |
 | `water_tank_controller` | 241 | 96 | 0 | 1 |
 
-These counts exactly match the baseline before language conversion. They are pre-fit analysis/synthesis counts, not final fitted area. The informational implementation messages report 225/242 logic cells; that is a different report field and is not substituted for the estimated logic-element values above. There is no power/area target supplied by the project.
+A fresh baseline run before this extension reported core 224 logic elements/92 registers and application 241/96. The core adds 161 logic elements and 66 registers for the separately controlled periodic function. The application holds `periodic_enable` LOW, allowing Quartus to remove the unused generator; its resources are unchanged.
+
+These are pre-fit estimated logic elements, not final area. Informational implementation messages report **387/242 logic cells**, a distinct report field. No power/area target was supplied.
 
 ## Warning and information review
 
 | Diagnostic | Meaning and disposition |
 | --- | --- |
-| Warning 20028: parallel compilation not licensed; disabled | Installed license/tool capability. The analysis continues serially and succeeds. Retained and documented; no tool installation or license change is required for the present check. |
-| Info 17049, application only: two registers lost fanouts | Report identifies `state~2` and `state~3` removed during netlist optimization. Reviewed as synthesis optimization of controller state; it is not a warning or an observed functional failure. No netlist-equivalence proof is claimed. |
+| Warning 20028: parallel compilation not licensed; disabled | Installed licence capability. Serial analysis completes successfully. This is the only warning in either top. |
+| Info 17049, application only: two registers lost fanouts | The controller state registers `state~2` and `state~3` are removed during optimization, as in the baseline. This informational message is not a warning. No netlist-equivalence proof is claimed. |
 
-No latch, multiple-driver, width-truncation, or combinational-loop warning was reported in these runs. Static source review also checks complete combinational assignments, one sequential owner per register, explicit unsigned counters, synchronization ownership, and reset/disable priorities. Diagnostic checks for unknown reset/enable are synthesis-excluded and cannot affect area or function.
+No latch, multiple-driver, width-truncation, unsupported-construct, or combinational-loop warning was reported. Independent source review covered complete assignments, register ownership, count widths, and reset/disable priorities. The simulator's guards for invalid width and unknown controls are excluded from synthesis.
 
-## Reproduction and limits
+## Reproduction
 
-Run `./synth/run.ps1` from PowerShell with Quartus discoverable from PATH, QUARTUS_ROOTDIR, or `-QuartusBin`. A new project directory is created every time; existing reports are preserved. A separate clean-checkout execution is recorded in the [conversion report](VERILOG_CONVERSION.md). Use the warnings in the generated reports as the source of truth on another machine/version.
+Run `./synth/run.ps1` from PowerShell with Quartus discoverable from PATH, `QUARTUS_ROOTDIR`, or `-QuartusBin`. Each invocation creates fresh projects and preserves prior evidence. The [historical conversion report](VERILOG_CONVERSION.md) records the earlier language-migration results; [current completion evidence](OSCILLATOR_COMPLETION.md) records both baseline reproduction and the final periodic implementation. Generated reports remain the source of truth when repeating on another machine/version.

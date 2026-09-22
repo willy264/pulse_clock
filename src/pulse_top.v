@@ -1,7 +1,8 @@
 module pulse_top #(
     parameter integer TIMER_WIDTH = 32,
     parameter integer SENSOR_CHANNELS = 2,
-    parameter integer DEBOUNCE_CYCLES = 1000000
+    parameter integer DEBOUNCE_CYCLES = 1000000,
+    parameter integer PERIOD_WIDTH = 32
 ) (
     input  wire                       clk,
     input  wire                       reset,
@@ -13,7 +14,10 @@ module pulse_top #(
     output wire                       timer_busy,
     output wire                       timer_done,
     output wire [SENSOR_CHANNELS-1:0] sensor_debounced,
-    output wire [SENSOR_CHANNELS-1:0] sensor_valid
+    output wire [SENSOR_CHANNELS-1:0] sensor_valid,
+    input  wire                       periodic_enable,
+    input  wire [PERIOD_WIDTH-1:0]     cfg_period_cycles,
+    output wire                       periodic_tick
 );
 
     pulse_timer #(
@@ -29,7 +33,13 @@ module pulse_top #(
         .timer_done(timer_done)
     );
 
-    // Each sensor progresses independently of the one-shot and other channels.
+    pulse_periodic #(.PERIOD_WIDTH(PERIOD_WIDTH)) u_periodic (
+        .clk(clk), .reset(reset), .enable(enable),
+        .periodic_enable(periodic_enable),
+        .cfg_period_cycles(cfg_period_cycles), .periodic_tick(periodic_tick)
+    );
+
+    // Each sensor progresses independently of both timing functions.
     genvar channel;
     generate
         for (channel = 0; channel < SENSOR_CHANNELS; channel = channel + 1) begin : gen_sensor

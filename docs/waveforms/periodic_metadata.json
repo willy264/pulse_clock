@@ -1,0 +1,157 @@
+{
+  "contract": "OSC-CONTRACT-1",
+  "run_directory": "build\\modelsim\\run-20260922-103440-575",
+  "method": "Settled VCD snapshots; clock-only changes omitted. Crops retain one actual preceding snapshot.",
+  "figures": [
+    "periodic_timing.png",
+    "periodic_concurrency.png"
+  ],
+  "recordings": {
+    "smoke": {
+      "source_vcd": "build\\modelsim\\run-20260922-103440-575\\pulse_periodic_smoke_tb.vcd",
+      "sha256": "b4e9659fdc98a88c54d63dd13da7610ae1563a67b40e1d379e170b5afef72c45",
+      "bytes": 4260,
+      "timescale": "1 ps",
+      "end_ns": 711.0,
+      "recorded_transition_rows": 46,
+      "selection": {
+        "start_ns": 0,
+        "end_ns": 711.0,
+        "transition_rows": 46,
+        "csv": "periodic_smoke_events.csv"
+      },
+      "selected_tick_rises": [
+        {
+          "time_ns": 110.0,
+          "value": 1
+        },
+        {
+          "time_ns": 170.0,
+          "value": 1
+        },
+        {
+          "time_ns": 230.0,
+          "value": 1
+        },
+        {
+          "time_ns": 370.0,
+          "value": 1
+        },
+        {
+          "time_ns": 470.0,
+          "value": 1
+        },
+        {
+          "time_ns": 670.0,
+          "value": 1
+        }
+      ]
+    },
+    "consumer": {
+      "source_vcd": "build\\modelsim\\run-20260922-103440-575\\pulse_periodic_tb.vcd",
+      "sha256": "31e7c73cbaf875a47f7601cf7516ca83c203e39ad8b7e4f6f85d0d0ae021beee",
+      "bytes": 1080619,
+      "timescale": "1 ps",
+      "end_ns": 87932.0,
+      "recorded_transition_rows": 967,
+      "selection": {
+        "start_ns": 650.0,
+        "end_ns": 890.0,
+        "transition_rows": 25,
+        "csv": "periodic_consumer_events.csv"
+      },
+      "selected_tick_rises": [
+        {
+          "time_ns": 730.0,
+          "value": 1
+        },
+        {
+          "time_ns": 790.0,
+          "value": 1
+        },
+        {
+          "time_ns": 850.0,
+          "value": 1
+        }
+      ],
+      "selected_consumer_changes": [
+        {
+          "time_ns": 640.0,
+          "value": 0
+        },
+        {
+          "time_ns": 750.0,
+          "value": 1
+        },
+        {
+          "time_ns": 810.0,
+          "value": 2
+        },
+        {
+          "time_ns": 870.0,
+          "value": 3
+        },
+        {
+          "time_ns": 890.0,
+          "value": 0
+        }
+      ]
+    },
+    "concurrency": {
+      "source_vcd": "build\\modelsim\\run-20260922-103440-575\\pulse_top_tb.vcd",
+      "sha256": "818a51ca0504874c382d7612e1076af0e50a085579b9d93336e44417b20385f3",
+      "bytes": 19541,
+      "timescale": "1 ps",
+      "end_ns": 2931.0,
+      "recorded_transition_rows": 133,
+      "selection": {
+        "start_ns": 1920.0,
+        "end_ns": 2931.0,
+        "transition_rows": 80,
+        "csv": "periodic_concurrency_events.csv"
+      },
+      "selected_tick_rises": [
+        {
+          "time_ns": 2050.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2130.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2210.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2290.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2410.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2470.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2670.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2710.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2750.0,
+          "value": 1
+        },
+        {
+          "time_ns": 2870.0,
+          "value": 1
+        }
+      ]
+    }
+  }
+}

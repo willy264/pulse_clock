@@ -1,6 +1,6 @@
 # PULSE requirements
 
-Status: **Working baseline following the user's continuation on 2026-09-10.** External team agreements and numerical hardware assumptions remain provisional.
+Status: **Working baseline, updated 2026-09-22 for oscillator completion under OSC-CONTRACT-1.** External team agreements and numerical hardware assumptions remain provisional.
 
 Prepared: 2026-09-10. Application: Water Tank Level & Dry-Run Protection Controller.
 
@@ -10,7 +10,9 @@ Implementation language: Verilog HDL
 
 The source is the user-supplied **MASTER PROJECT PROMPT**, particularly sections 1–5, 13–16, 20–24, and 37. No separate university project sheet, sensor specification, board specification, or other team's interface was present in the workspace. The first four-document deliverable stopped for review as section 37 requested. The user's subsequent instruction, “alright continue then,” permits continued design and implementation using the documented assumptions as the working baseline.
 
-The user's latest explicit language correction supersedes the original prompt's language requirement: production RTL, simulation models, and testbenches shall use Verilog HDL, with Verilog-2001 syntax and `.v` filenames compatible with Quartus 13.0.1 and ModelSim-Altera 10.1d. This correction preserves the existing architecture, functional requirements, timing, and verification intent. The current work ends after conversion, clean compilation, simulation, synthesis verification, and reporting; new features are outside this conversion scope. See [conversion record](VERILOG_CONVERSION.md).
+The user's explicit language correction supersedes the original prompt's language requirement: production RTL, simulation models, and testbenches shall use Verilog HDL, with Verilog-2001 syntax and `.v` filenames compatible with Quartus 13.0.1 and ModelSim-Altera 10.1d. The completed conversion preserved the existing timer/debounce architecture, functional requirements, timing, and verification intent; see the historical [conversion record](VERILOG_CONVERSION.md).
+
+The subsequent request to implement all [oscillator team tasks](PULSE_OSCILLATOR_TEAM_TASKS.md) adds periodic generation to the working scope. [OSC-CONTRACT-1](OSCILLATOR_CONTRACT.md) selects the existing registered periodic-tick proposal for this implementation. F-11 was conditional in the original prompt; its current inclusion comes from this later request and the documented working decision, not a claimed supervisor or other-team approval. The existing water-tank behavior is retained.
 
 The product is a reusable PULSE digital timing block, implemented in synthesizable Verilog HDL and demonstrated through ModelSim simulation of a water-tank controller. PULSE qualifies sensor transitions and measures intervals. GUARDIAN interprets those observations and owns pump control and protection policy. A timer expiry alone indicates elapsed time, not proof of a physical dry-run.
 
@@ -22,7 +24,7 @@ Priority and origin are separate:
 
 | Label | Meaning |
 | --- | --- |
-| Required | Needed to satisfy the supplied project brief; implementation and verification occur in later phases. |
+| Required | Needed to satisfy the supplied project brief or subsequent user-authorized working scope; evidence is tracked separately. |
 | Recommended | Proposed addition that makes the required behavior easier to integrate or verify; subject to review. |
 | Optional | Include only when an application consumer or other agreed requirement justifies it. |
 | Explicit origin | Stated in the master prompt. |
@@ -36,16 +38,16 @@ Approving a capability does not automatically approve its proposed port names or
 | ID | Priority / origin | Requirement | Planned acceptance evidence |
 | --- | --- | --- | --- |
 | F-01 | Required / derived from synchronous timing and clock-domain rules | PULSE shall accept an external system clock. All functional timing shall have a defined relationship to that clock. | Edge-based checks of every output; clocking review. |
-| F-02 | Required / derived from deterministic operation and reset tests | Reset shall establish known timer and sensor-status states and abort an active timing operation. | Reset when idle, counting, and qualifying a sensor. Polarity/style proposed in A-02. |
+| F-02 | Required / derived from deterministic operation and reset tests | Reset shall establish known timer, sensor-status, and periodic states; abort active one-shot timing and clear periodic phase/output. | Reset when idle, counting, qualifying a sensor, and on periodic expiry. Polarity/style in A-02. |
 | F-03 | Required / explicit, §5A | PULSE shall provide a configurable one-shot interval and a completion indication. The interval's units, range, and configuration sampling point shall be documented. | Zero, minimum, representative, and maximum values; configuration changes during operation. |
 | F-04 | Required / explicit, §5B | PULSE shall qualify sensor changes over a configured stability interval so shorter observed transitions do not immediately become accepted readings. | Noise rejection, stable rising/falling input, repeated changes, and a change on the expiration edge. |
 | F-05 | Required / explicit, §5C | PULSE shall provide an elapsed-window indication usable by GUARDIAN to evaluate the absence of an expected water-level response. | Window completes without response; response can end monitoring under the agreed contract. |
 | F-06 | Required / derived from F-04/F-05 | Sensor qualification shall remain operational during a protection window. Sensor chatter shall not change that window's deadline without an explicit timer control action. | Concurrent debounce and timer test with repeated noise. This requires independent progress, not a particular counter architecture. |
 | F-07 | Recommended / assumption | Provide `timer_busy` so the caller can determine whether a new start can be accepted. | Busy agrees with start, completion, abort, and reset. |
-| F-08 | Recommended / assumption | Provide an explicit cancellation control that ends a window without reporting expiry. | Cancellation before and exactly at expiry; cancellation must not reset sensor qualification. |
+| F-08 | Recommended / assumption | Provide an explicit cancellation control that ends a window without reporting expiry. | Cancellation before and exactly at expiry; cancellation must not reset sensor qualification or periodic phase. |
 | F-09 | Recommended / assumption | Provide an operation enable with documented disable/re-enable behavior. | Disabled starts are ignored; disable aborts, rather than pauses, the timer; see A-05. |
 | F-10 | Recommended / assumption | Distinguish an initialized sensor output from a qualified reading using per-channel validity status. | Output is invalid after reset/disable until startup qualification succeeds, even for an input equal to the reset value. |
-| F-11 | Optional / conditional in §5D | Provide configurable periodic clock-enable events if a consumer needs periodic sampling or status updates. | If adopted, verify first event, spacing, disable/re-enable, and period changes. No consumer is confirmed yet. |
+| F-11 | Required in current oscillator-completion scope / later user request plus OSC-CONTRACT-1 working decision; originally conditional in §5D | Provide independent configurable registered periodic clock-enable events. Capture P at first jointly enabled edge, normalize zero to one, repeat every P full input-clock intervals, and clear phase/output on sampled reset/global disable/local disable. | Independent unit checks, checker self-tests, smoke checks, concurrent top-level tests, synthesis, and measured waves. Demonstrate synchronous event counting in the periodic bench; no external application consumer is claimed. |
 | F-12 | Recommended / assumption | Allow the number of independent Boolean sensor channels and their stability interval to be parameterized. | Each channel qualifies independently; changes on one do not reset another. Channel meanings remain provisional. |
 
 The one-shot serves both reusable delays and the proposed protection window; a dedicated `dry_run_detected` output is not a PULSE requirement. One external timing operation at a time is the initial proposal. Multiple simultaneous application windows would require additional instances or a revised contract.
@@ -74,13 +76,13 @@ The one-shot serves both reusable delays and the proposed protection window; a d
 | Noisy level sensor | Stability qualification/debounce | Prevent short sampled noise from changing accepted level inputs. | SENTINEL/integration defines sensor meaning, polarity, and coherent delivery. |
 | Suspected dry-run | Configurable one-shot window | Indicate that the allotted response time has elapsed. | GUARDIAN defines the start event and expected validated response, decides fault status, and drives the pump. |
 | Pump protection timing | Measured delay/window | Make a decision depend on a documented interval rather than incidental FSM execution time. | GUARDIAN decides stop/retry/latching and response-versus-timeout priority. |
-| Periodic sampling/status, if needed | Optional clock-enable event | Supply a repeatable update cadence to an identified consumer. | Integration/VOICE must identify that consumer and its period. |
+| Reusable recurring timing capability; future sampling/status integration | Registered periodic clock-enable event under OSC-CONTRACT-1 | Complete the requested oscillator capability and demonstrate repeated synchronous event counting. | A unit-bench event counter demonstrates consumption. Integration/VOICE must separately agree any real application consumer, cadence, and domain. The water-tank adapter disables periodic operation. |
 
 The later digital application must demonstrate normal LOW → MID → HIGH filling, noise rejection, absent response during pumping, defined recovery, and reset at different stages (§21). These are required scenarios; exact level encodings, pump activation delays, recovery rules, and any fault latch are **not** supplied requirements. They must be agreed or explicitly assumed before the application model/FSM is written.
 
 ## 6. Engineering assumption register
 
-Every entry is a **working engineering assumption**, not a claim about physical hardware or another team's implementation. F-11 remains optional and is excluded from the baseline because no periodic consumer is confirmed. The digital application adds explicit scenario assumptions in [water-tank behavior](WATER_TANK_BEHAVIOR.md).
+Every entry is a **working engineering assumption**, not a claim about physical hardware or another team's implementation. F-11 is included under OSC-CONTRACT-1 to complete the user's oscillator request; an external periodic consumer remains unconfirmed. The digital application retains its scenario assumptions in [water-tank behavior](WATER_TANK_BEHAVIOR.md).
 
 | ID | Proposal | Reason / alternative |
 | --- | --- | --- |
@@ -88,12 +90,12 @@ Every entry is a **working engineering assumption**, not a claim about physical 
 | A-02 | Active-high synchronous `reset`; integration supplies a reset meeting `clk` timing. Outputs become known on a reset-sampling edge. | A simple digital contract. An external asynchronous reset would need separately agreed conditioning; no board/reset circuit is assumed. |
 | A-03 | One runtime-configured external one-shot plus independent sensor qualification; `TIMER_WIDTH = 32`. | At the illustrative clock this permits about 85.9 s. Longer requirements need a wider timer or an agreed timebase. Sharing one interval's state with debounce would obstruct concurrent protection. |
 | A-04 | Capture `cfg_timer_cycles` on an accepted start. For nonzero N, complete after N full subsequent clock intervals. Normalize zero to one cycle. Ignore starts while busy; use a one-cycle completion event. | Prevent underflow, define the minimum, and avoid a restart/queue/acknowledge protocol. Alternatives include rejecting zero or retaining completion until acknowledged. |
-| A-05 | `enable = 0` aborts the timer and clears sensor output/validity on the next clock edge; re-enable starts fresh qualification. `timer_cancel` only aborts the timer. | Distinguishes whole-block disable from normal end-of-monitoring. Pause/resume is unnecessary for the initial application. An integration that does not need disable can tie enable high; removing the port is another review option. |
+| A-05 | `enable = 0` aborts the timer, clears sensor output/validity, and clears periodic phase/output on the next clock edge; re-enable starts fresh qualification and captures a new periodic period if locally enabled. `timer_cancel` only aborts the timer; `periodic_enable = 0` clears only periodic operation. | Distinguishes global disable from independent function controls. No pause/resume behavior is introduced. |
 | A-06 | Initial `SENSOR_CHANNELS = 2` means two independent Boolean inputs, with no assigned bit meanings. PULSE provisionally owns two-stage synchronization per input. | Two predicates can be useful for lower/upper threshold integration, but the actual SENTINEL interface is unknown. A coherent encoded word needs a different, agreed transfer contract. |
 | A-07 | Common elaboration-time `DEBOUNCE_CYCLES = 1_000_000` (20 ms at 50 MHz), applying to both directions and initial qualification. | A review fixture, chosen to reject shorter observed disturbances while adding 20 ms of response latency. No measured sensor bounce or response limit is available. Runtime or asymmetric debounce is deferred until justified. |
 | A-08 | Sensor output reset value is all zero with validity cleared. A channel becomes valid only after a complete observed stability interval. | A reset code must not silently be interpreted as measured LOW/MID/HIGH. Validity then describes the last qualified reading, not current agreement with raw input. |
 | A-09 | Illustrative protection-window setting: 5 s, or 250,000,000 cycles at 50 MHz. | A demonstration interval 250 times the illustrative debounce duration, within a 32-bit counter. It is not a calibrated dry-run limit or a verified fill time. Actual setting requires GUARDIAN/application input. |
-| A-10 | Periodic output is optional and is a `clk`-domain enable/event, never an internal clock. A 100 Hz example may be used only if an update consumer is agreed. | No current requirement forces periodic sampling. Direct clock sampling already supports debounce. A square-wave oscillator is not proposed. |
+| A-10 | OSC-CONTRACT-1 selects a `clk`-domain periodic enable/event with independent `PERIOD_WIDTH = 32`. Capture P = max(1, configuration) on startup; first event follows P intervals; reload the captured P. P = 1 gives consecutive high event cycles. All sampled clears win expiry. | Completes the requested recurring timing capability while preserving direct-clock debounce and one-shot operation. The 100 Hz value remains an example. A square-wave alternative would need a separately agreed contract. |
 | A-11 | Timer priority: reset, disable, cancel, active counting/expiry, idle start. Current input mismatch takes precedence over debounce expiry. | Removes simultaneous-event ambiguity. A start coincident with expiry is ignored; cancellation at expiry suppresses completion. |
 | A-12 | Pump actions, level-response definitions, recovery, and simultaneous response/timeout priority remain integration decisions. | Assigning these inside PULSE would invent GUARDIAN policy. No automatic retry or fault latch is proposed here. |
 
@@ -110,12 +112,12 @@ These items are **BLOCKED / REQUIRES TEAM INPUT** for a finalized integration co
 | Q-05 | Required minimum/maximum protection duration and tolerable timing error, including qualification/decision latency? | GUARDIAN + application team. Confirms range/width and replaces the 5 s fixture. |
 | Q-06 | Pump/reset behavior, fault recovery, and priority if a validated response and timeout are observed together? | GUARDIAN + integration. Required before implementing application behavior. |
 | Q-07 | Can consumers capture one-cycle `timer_done` synchronously, and accept ignore-while-busy/cancel/disable semantics? | GUARDIAN + integration. Confirms the handshake and event persistence requirements. |
-| Q-08 | Does VOICE or another block require periodic events, at what cadence and in which clock domain? | VOICE + integration. Decides whether F-11 becomes part of the design. |
+| Q-08 | Does VOICE or another block require periodic events, at what cadence and in which clock domain? Does the supervisor's eventual assignment interpretation require a square wave? | VOICE + integration/supervisor. External usage and interpretation remain provisional; OSC-CONTRACT-1 already includes the periodic-tick feature in the current working design. |
 
 ## 8. Review and later verification
 
 The initial review checked consistency, provenance, arithmetic, and interface completeness only. Architecture and state-machine design now define the implementation. Later reports distinguish actual HDL/test execution from planned checks.
 
-Verification must cover reset during counting; start while busy and on expiry; zero/minimum/maximum intervals; configuration changes mid-count; cancellation/disable at expiry; repeated starts; sensor startup validity; noise and expiration-boundary changes; simultaneous timer/debounce operation; and the five application scenarios above. Periodic checks apply only if that extension is adopted. Concrete test IDs and evidence belong to the verification plan and traceability matrix.
+Verification must cover reset during counting; start while busy and on expiry; zero/minimum/maximum intervals; configuration changes mid-count; cancellation/disable at expiry; repeated starts; sensor startup validity; noise and expiration-boundary changes; simultaneous timer/debounce operation; and the five application scenarios above. Periodic checks under OSC-CONTRACT-1 cover startup, repeated periods, P = 1 consecutive events, captured configuration across reloads, all clear sources at expiry, restart, synchronous consumption, and independence from timer/sensor activity. Concrete test IDs and evidence belong to the verification plan and traceability matrix.
 
 The [project inventory](project_inventory.md) preserves the original reconnaissance snapshot. The [architecture](PULSE_ARCHITECTURE.md) and [state-machine specification](PULSE_STATE_MACHINES.md) carry the subsequent design decisions. External agreements Q-01 through Q-08 remain open without preventing a clearly provisional digital demonstration.

@@ -42,7 +42,9 @@ module water_tank_controller #(
         .cfg_timer_cycles(cfg_protection_cycles),
         .timer_busy(timer_busy), .timer_done(timer_done),
         .sensor_in(sensor_in), .sensor_debounced(sensor_debounced),
-        .sensor_valid(sensor_valid)
+        .sensor_valid(sensor_valid),
+        // This initial-response policy has no periodic-event consumer.
+        .periodic_enable(1'b0), .cfg_period_cycles(32'd0), .periodic_tick()
     );
 
     // Combinational strobes let PULSE accept the start on the same edge
